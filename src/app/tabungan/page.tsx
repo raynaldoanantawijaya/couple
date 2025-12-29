@@ -469,11 +469,11 @@ export default function TabunganPage() {
                                     required
                                     value={txGoalId}
                                     onChange={e => setTxGoalId(e.target.value)}
-                                    className="w-full p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-primary appearance-none"
+                                    className="w-full p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-primary appearance-none text-slate-900 dark:text-white cursor-pointer"
                                 >
-                                    <option value="" disabled>-- Pilih Pos --</option>
+                                    <option value="" disabled className="dark:bg-slate-800">-- Pilih Pos --</option>
                                     {goals.map(g => (
-                                        <option key={g.id} value={g.id}>{g.title}</option>
+                                        <option key={g.id} value={g.id} className="dark:bg-slate-800">{g.title}</option>
                                     ))}
                                 </select>
                             </div>

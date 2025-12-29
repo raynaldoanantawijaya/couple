@@ -13,12 +13,15 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === "Admin" && password === "admin") {
+    if (
+      (email === "raynaldoanantawijaya180@gmail.com" && password === "yeamplow12345") ||
+      (email === "shafrina77@gmail.com" && password === "abogoboga12345")
+    ) {
       // Set a simple cookie or local storage to simulate auth
       document.cookie = "auth=true; path=/";
       router.push("/beranda");
     } else {
-      setError("Email atau kata sandi salah (Gunakan Admin/admin)");
+      setError("Email atau kata sandi salah.");
     }
   };
 

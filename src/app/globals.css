@@ -20,3 +20,10 @@
     scrollbar-width: none;
   }
 }
+
+/* Force dark options in dark mode for browser compatibility */
+.dark option {
+  background-color: #1e293b;
+  /* slate-800 */
+  color: white;
+}
