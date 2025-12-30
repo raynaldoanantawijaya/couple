@@ -186,7 +186,7 @@ export default function BerandaPage() {
                             <div className="relative z-10 h-full flex flex-col justify-center p-6 md:p-12 max-w-2xl">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 w-fit mb-4">
                                     <span className="material-symbols-outlined text-primary text-sm">calendar_month</span>
-                                    <span className="text-xs font-semibold text-white">Day 1 Together</span>
+                                    <span className="text-xs font-semibold text-white">Day {Math.floor((new Date().getTime() - new Date("2025-12-30").getTime()) / (1000 * 3600 * 24)) + 1} Together</span>
                                 </div>
                                 <h1 className="text-white text-3xl md:text-5xl font-bold leading-tight mb-4">Selamat Datang di <br /> <span className="text-primary">Rumah Digital Kita</span></h1>
                                 <p className="text-slate-200 text-lg font-light mb-6 line-clamp-2">Tempat kita merangkai mimpi, menyimpan kenangan manis, dan merencanakan masa depan yang indah bersama.</p>
