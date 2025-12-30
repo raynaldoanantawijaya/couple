@@ -1,105 +1,103 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 
 interface GalleryItem {
+    public_id: string;
     title: string;
     date: string;
     tag: string;
     img: string;
+    thumbnail?: string;
 }
 
 export default function GalleryPage() {
     const [items, setItems] = useState<GalleryItem[]>([]);
+    const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Load from localStorage for immediate feedback
-        const localData = localStorage.getItem("uploaded_gallery_items");
-        if (localData) {
+        // Fetch from Cloudinary API
+        const fetchImages = async () => {
             try {
-                const parsed: GalleryItem[] = JSON.parse(localData);
-                setItems(prev => {
-                    // Create a set of existing image URLs to prevent duplicates
-                    const existingimgs = new Set(prev.map(item => item.img));
-                    // Only add items that aren't already in the list
-                    const uniqueNewItems = parsed.filter(item => !existingimgs.has(item.img));
+                const res = await fetch('/api/resources?type=image');
+                const data = await res.json();
 
-                    return [...uniqueNewItems, ...prev];
-                });
-            } catch (e) {
-                console.error("Failed to parse local gallery items", e);
+                if (data.resources) {
+                    const mapped: GalleryItem[] = data.resources.map((r: any) => {
+                        const ctx = r.context?.custom || {};
+                        return {
+                            public_id: r.public_id,
+                            title: ctx.caption || "Momen Kita",
+                            date: ctx.date || new Date(r.created_at).toLocaleDateString(),
+                            tag: "Upload",
+                            img: r.secure_url,
+                            thumbnail: r.secure_url.replace("/upload/", `/upload/g_${ctx.cover_gravity || 'center'},w_300,h_300,c_fill,q_auto,f_auto/`)
+                        };
+                    });
+                    setItems(mapped);
+                }
+            } catch (error) {
+                console.error("Failed to fetch gallery items", error);
+            } finally {
+                setLoading(false);
             }
-        }
+        };
+
+        fetchImages();
     }, []);
 
-    const handleDelete = async (indexToDelete: number, item: GalleryItem) => {
-        if (!confirm("Apakah Anda yakin ingin menghapus foto ini?")) return;
+    // Helper to generate download URL
+    const getDownloadUrl = (url: string) => {
+        return url.replace("/upload/", "/upload/fl_attachment/");
+    };
 
-        // 1. Remove from State immediately for UI responsiveness
-        setItems(prev => prev.filter((_, idx) => idx !== indexToDelete));
+    const handleDelete = async (public_id: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent opening modal
+        if (!confirm("Yakin mau hapus foto ini?")) return;
 
-        // 2. Remove from LocalStorage & Cloudinary (if it's an uploaded item)
-        if (item.tag === "Upload") {
-            try {
-                // Remove from Local Storage
-                const localData = localStorage.getItem("uploaded_gallery_items");
-                if (localData) {
-                    const parsed: GalleryItem[] = JSON.parse(localData);
-                    const updated = parsed.filter(p => p.img !== item.img);
-                    localStorage.setItem("uploaded_gallery_items", JSON.stringify(updated));
-                }
+        // Optimistic update
+        setItems(prev => prev.filter(i => i.public_id !== public_id));
 
-                // Remove from Cloudinary
-                // Extract public_id from URL: .../upload/v<ver>/<public_id>.<ext>
-                const matches = item.img.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/);
-                if (matches && matches[1]) {
-                    const public_id = matches[1];
-                    const res = await fetch('/api/delete', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ public_id, resource_type: 'image' })
-                    });
-                    const data = await res.json();
-                    if (!data.success) {
-                        console.error("Gagal menghapus dari Cloudinary:", data);
-                        alert("Gagal menghapus dari server, tapi sudah dihapus dari tampilan.");
-                    }
-                }
-            } catch (e) {
-                console.error("Error removing item", e);
-            }
-        } else {
-            alert("Foto bawaan hanya terhapus dari tampilan sementara.");
+        try {
+            await fetch('/api/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ public_id })
+            });
+        } catch (error) {
+            console.error("Delete failed", error);
         }
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white overflow-x-hidden min-h-screen flex flex-col">
+        <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20 font-display">
 
             <main className="flex-1 flex flex-col items-center py-8 px-6 md:px-10 lg:px-40">
                 <div className="max-w-[1440px] w-full flex flex-col gap-8">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#48232f] pb-6">
+                    {/* Header Section matching Video Page */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-6">
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-white text-4xl md:text-5xl font-black tracking-tighter">Galeri Kita</h1>
-                            <p className="text-[#c992a4] text-lg font-medium max-w-xl">
-                                Kumpulan momen indah perjalanan cinta kita, dari tawa kecil hingga petualangan besar.
+                            <h1 className="text-slate-900 dark:text-white text-4xl md:text-5xl font-black tracking-tighter">Galeri Kita</h1>
+                            <p className="text-slate-500 dark:text-slate-400 text-lg font-medium max-w-xl">
+                                Kumpulan momen indah yang tak terlupakan, tersimpan rapi disini.
                             </p>
                         </div>
-                        <div className="flex items-center gap-2 text-[#c992a4] text-sm font-medium">
+                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-medium">
                             <span className="material-symbols-outlined text-lg">photo_library</span>
                             <span>{items.length} Foto Tersimpan</span>
                         </div>
                     </div>
 
+                    {/* Filters */}
                     <div className="w-full overflow-x-auto pb-2">
                         <div className="flex gap-3 min-w-max">
-                            {["Semua", "Upload", "2024", "2023", "Liburan", "Kencan", "Anniversary", "Keluarga"].map((filter, i) => (
+                            {["Semua", "Upload"].map((filter, i) => (
                                 <button
                                     key={filter}
                                     className={`flex h-9 items-center justify-center px-5 rounded-full text-sm font-medium transition-transform hover:scale-105 ${i === 0
                                         ? "bg-primary text-white"
-                                        : "bg-surface-border text-white hover:bg-primary/20 hover:border-primary/30 border border-transparent"
+                                        : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-primary/20 hover:border-primary/30 border border-transparent"
                                         }`}
                                 >
                                     {filter}
@@ -108,38 +106,99 @@ export default function GalleryPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                        {/* Gallery Items */}
-                        {items.map((item, idx) => (
-                            <div key={idx} className="group relative aspect-[4/5] overflow-hidden rounded-xl bg-surface-dark cursor-pointer shadow-md transition-all hover:shadow-xl hover:shadow-primary/10">
+                    {loading ? (
+                        <div className="flex justify-center items-center h-[60vh] w-full">
+                            <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {items.length === 0 && (
+                                <p className="text-slate-400 col-span-full text-center py-20">Belum ada foto.</p>
+                            )}
+
+                            {items.map((item) => (
                                 <div
-                                    className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                                    style={{ backgroundImage: `url("${item.img}")` }}
-                                ></div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                                    <span className="text-primary text-xs font-bold uppercase tracking-wider mb-1">{item.tag}</span>
-                                    <h3 className="text-white font-bold text-lg leading-tight">{item.title}</h3>
-                                    <div className="flex items-center gap-1 text-gray-300 text-xs mt-2">
-                                        <span className="material-symbols-outlined text-sm">calendar_today</span>
-                                        <span>{item.date}</span>
-                                    </div>
-                                </div>
-                                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    <div className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-primary transition-colors">
-                                        <span className="material-symbols-outlined text-xl">favorite_border</span>
-                                    </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(idx, item); }}
-                                        className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-red-500 transition-colors z-20"
+                                    key={item.public_id}
+                                    className="group relative aspect-square overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 cursor-pointer shadow-md transition-all hover:shadow-xl hover:shadow-primary/10"
+                                    onClick={() => setSelectedItem(item)}
+                                >
+                                    <div
+                                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                                        style={{ backgroundImage: `url("${item.thumbnail || item.img}")` }}
                                     >
-                                        <span className="material-symbols-outlined text-xl">delete</span>
-                                    </button>
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                    </div>
+
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
+                                        <span className="text-primary text-xs font-bold uppercase tracking-wider mb-1">{item.tag}</span>
+                                        <h3 className="text-white font-bold text-lg leading-tight truncate">{item.title}</h3>
+                                        <div className="flex items-center gap-1 text-gray-300 text-xs mt-2">
+                                            <span className="material-symbols-outlined text-sm">calendar_today</span>
+                                            <span>{item.date}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="absolute top-3 right-3 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
+                                        <div className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-primary transition-colors">
+                                            <span className="material-symbols-outlined text-xl">favorite_border</span>
+                                        </div>
+                                        <div
+                                            onClick={(e) => handleDelete(item.public_id, e)}
+                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-red-500 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </main>
+
+            {/* Robust Lightbox Layout */}
+            {selectedItem && (
+                <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm animate-in fade-in duration-200 h-[100dvh]">
+                    {/* Close Button - Fixed Top Right */}
+                    <button
+                        onClick={() => setSelectedItem(null)}
+                        className="absolute top-4 right-4 z-[60] w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-white/20 text-white/70 hover:text-white rounded-full transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-3xl">close</span>
+                    </button>
+
+                    {/* Image Area - Flex 1 to take available space */}
+                    <div
+                        className="flex-1 w-full flex items-center justify-center min-h-0 p-4 relative"
+                        onClick={() => setSelectedItem(null)}
+                    >
+                        <img
+                            src={selectedItem.img}
+                            alt={selectedItem.title}
+                            className="max-w-full max-h-full object-contain drop-shadow-2xl"
+                        />
+                    </div>
+
+                    {/* Footer Area - Flex None / Shrink 0 to never be squished */}
+                    <div className="shrink-0 w-full bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-8 px-4 flex flex-col items-center text-center z-10">
+                        <h3 className="text-white text-xl font-bold truncate max-w-md">{selectedItem.title}</h3>
+                        <p className="text-white/60 text-sm mb-4">{selectedItem.date}</p>
+
+                        <div className="flex justify-center mt-2">
+                            <a
+                                href={getDownloadUrl(selectedItem.img)}
+                                className="flex items-center gap-2 px-6 py-2 bg-white text-black hover:bg-slate-200 rounded-full font-bold text-sm transition-colors"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <span className="material-symbols-outlined text-lg">download</span>
+                                Download
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

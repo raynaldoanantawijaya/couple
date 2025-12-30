@@ -19,6 +19,13 @@ export default function LoginPage() {
     ) {
       // Set a simple cookie or local storage to simulate auth
       document.cookie = "auth=true; path=/";
+
+      // Save session with timestamp for 24h timeout
+      localStorage.setItem("auth_session", JSON.stringify({
+        isLoggedIn: true,
+        loginTime: Date.now()
+      }));
+
       router.push("/beranda");
     } else {
       setError("Email atau kata sandi salah.");

@@ -18,12 +18,52 @@ interface Project {
     createdAt: any;
     // Business Fields
     capitalInitial?: number;
-    capitalAdditional?: number;
-    expenditure?: number;
+    fixedCosts?: { id: string, name: string, amount: number }[];
+    cogsPerUnit?: number;
     sellingPrice?: number;
+    initialStock?: number;
+    stockAdded?: number;
     soldUnits?: number;
-    remainingUnits?: number;
+    // Budget Fields
+    budgetItems?: { id: string, name: string, estimated: number, actual: number, isPaid: boolean }[];
 }
+
+const getProjectStats = (proj: Project) => {
+    // Business Logic
+    if (proj.category === 'Bisnis') {
+        const totalSales = (proj.sellingPrice || 0) * (proj.soldUnits || 0);
+        const totalFixedCost = (proj.fixedCosts || []).reduce((acc, curr) => acc + curr.amount, 0);
+        const totalStockCost = ((proj.initialStock || 0) + (proj.stockAdded || 0)) * (proj.cogsPerUnit || 0);
+        const modalTerpakai = totalFixedCost + totalStockCost;
+        const profit = totalSales - modalTerpakai; // Simple cash flow profit for list view? 
+        // Or strict accounting profit? Detail page uses: (Sales - COGS_Sold) - FixedCost. 
+        // Let's match detail page "Laba Bersih":
+        const cogsSold = (proj.soldUnits || 0) * (proj.cogsPerUnit || 0);
+        const neto = totalSales - cogsSold - totalFixedCost;
+
+        return {
+            label: "Modal",
+            value: proj.capitalInitial || proj.cost || 0,
+            secondaryLabel: "Laba Bersih",
+            secondaryValue: neto,
+            isBusiness: true
+        };
+    }
+
+    // Budget Logic (Non-Business)
+    const items = proj.budgetItems || [];
+    const totalEstimated = items.length > 0 ? items.reduce((sum, i) => sum + (i.estimated || 0), 0) : (proj.cost || 0);
+    const totalActual = items.reduce((sum, i) => sum + (i.actual || 0), 0);
+
+    return {
+        label: "Estimasi",
+        value: totalEstimated,
+        secondaryLabel: "Terpakai",
+        secondaryValue: totalActual,
+        isBusiness: false,
+        hasActivity: items.length > 0
+    };
+};
 
 export default function ProjectPage() {
     const router = useRouter();
@@ -42,6 +82,9 @@ export default function ProjectPage() {
     // Quick Edit State
     const [showQuickEdit, setShowQuickEdit] = useState(false);
     const [quickEditData, setQuickEditData] = useState<{ id: string, cost: number, deadline: string } | null>(null);
+
+    // Add Project Modal State
+    const [showAddProject, setShowAddProject] = useState(false);
 
     useEffect(() => {
         const q = query(collection(db, "projects"), orderBy("createdAt", "desc"));
@@ -104,6 +147,7 @@ export default function ProjectPage() {
             setDeadline("");
             setCategory("Lainnya");
             setIsPriority(false);
+            setShowAddProject(false); // Close modal on success
             alert(finalIsPriority !== isPriority ? "Project disimpan (Prioritas penuh, diset ke biasa)." : "Project berhasil ditambahkan!");
         } catch (error) {
             console.error("Error adding project: ", error);
@@ -195,18 +239,213 @@ export default function ProjectPage() {
                         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Manajemen Project</h1>
                         <p className="text-slate-500 dark:text-[#c992a4] text-base font-medium">Kelola dan pantau progress project bersama 🚀</p>
                     </div>
+                    <button
+                        onClick={() => setShowAddProject(true)}
+                        className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-rose-600 text-white font-bold shadow-lg shadow-primary/25 transition-all active:scale-95"
+                    >
+                        <span className="material-symbols-outlined">add_circle</span>
+                        Tambahkan Project Baru
+                    </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Form Section */}
-                    <div className="lg:col-span-1 order-2 lg:order-1">
-                        <div className="rounded-2xl bg-white dark:bg-surface-dark p-6 border border-gray-200 dark:border-surface-border shadow-sm sticky top-24">
-                            <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-surface-border/50 pb-4">
-                                <div className="bg-primary/10 w-10 h-10 rounded-xl flex items-center justify-center text-primary shadow-sm shadow-primary/20">
-                                    <span className="material-symbols-outlined">edit_note</span>
+                <div className="flex flex-col gap-8">
+                    {/* Priority Projects (Max 3) */}
+                    {priorityProjects.length > 0 && (
+                        <div className="grid grid-cols-1 gap-6">
+                            {priorityProjects.map(proj => (
+                                <div key={proj.id} className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-surface-dark dark:to-[#1a0c10] border border-gray-200 dark:border-surface-border shadow-lg p-6 relative overflow-hidden text-white group cursor-pointer transition-all hover:scale-[1.01]"
+                                    onClick={() => router.push(`/project/${proj.id}`)}
+                                >
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-primary/30 transition-colors duration-500"></div>
+                                    <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={(e) => handleTogglePriority(e, proj)}
+                                                    className="bg-white/10 w-12 h-12 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/10 shadow-inner hover:bg-white/20 transition-colors"
+                                                    title="Hapus dari Prioritas"
+                                                >
+                                                    <span className="material-symbols-outlined text-yellow-400 text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                                                </button>
+                                                <div>
+                                                    <span className="text-xs font-bold text-primary uppercase tracking-wider block mb-0.5">Prioritas Utama</span>
+                                                    <h3 className="text-xl md:text-2xl font-bold">{proj.title}</h3>
+                                                </div>
+                                            </div>
+                                            <div className={`px-3 py-1 rounded-full text-xs font-bold border ${proj.status === 'Selesai' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
+                                                proj.status === 'On Progress' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' :
+                                                    'bg-white/10 border-white/10'
+                                                }`}>
+                                                {proj.status}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-white/10">
+                                            {(() => {
+                                                const stats = getProjectStats(proj);
+                                                return (
+                                                    <>
+                                                        <div className="relative group/edit">
+                                                            <span className="text-xs opacity-60 block">{stats.label}</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="font-bold">{formatRupiah(stats.value)}</span>
+                                                                <button
+                                                                    onClick={(e) => openQuickEdit(e, proj)}
+                                                                    className="opacity-0 group-hover/edit:opacity-100 hover:text-primary transition-opacity"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="relative group/edit">
+                                                            <span className="text-xs opacity-60 block">Deadline</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="font-bold">{proj.deadline}</span>
+                                                                <button
+                                                                    onClick={(e) => openQuickEdit(e, proj)}
+                                                                    className="opacity-0 group-hover/edit:opacity-100 hover:text-primary transition-opacity"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs opacity-60 block">Kategori</span>
+                                                            <span className="font-bold">{proj.category}</span>
+                                                            {(stats.isBusiness || stats.hasActivity) && (
+                                                                <span className={`text-[10px] font-bold block mt-1 ${stats.isBusiness
+                                                                    ? (stats.secondaryValue > 0 ? "text-green-400" : "text-red-400")
+                                                                    : (stats.secondaryValue > stats.value ? "text-red-400" : "text-blue-300")
+                                                                    }`}>
+                                                                    {stats.secondaryLabel}: {formatRupiah(Math.abs(stats.secondaryValue))}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                            <div className="flex items-center justify-end">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(proj.id); }}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-red-500/80 text-white transition-colors"
+                                                    title="Hapus Project"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">close</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Pengisian Project</h3>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Recent Projects (Non-Priority) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {otherProjects.length === 0 && priorityProjects.length === 0 ? (
+                            <div className="col-span-full py-20 text-center text-slate-400 bg-white dark:bg-surface-dark rounded-3xl border border-dashed border-gray-200 dark:border-surface-border flex flex-col items-center justify-center gap-4">
+                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-full">
+                                    <span className="material-symbols-outlined text-4xl opacity-50">folder_open</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Belum ada project</h3>
+                                    <p>Mulai tambahkan project impian kalian! ✨</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowAddProject(true)}
+                                    className="mt-2 text-primary font-bold hover:underline"
+                                >
+                                    Buat Project Baru
+                                </button>
                             </div>
+                        ) : (
+                            otherProjects.map((proj) => (
+                                <div key={proj.id} className="group bg-white dark:bg-surface-dark rounded-2xl p-5 border border-gray-200 dark:border-surface-border hover:border-primary/50 dark:hover:border-primary/50 transition-all cursor-pointer relative shadow-sm hover:shadow-lg h-full flex flex-col justify-between"
+                                    onClick={() => router.push(`/project/${proj.id}`)}
+                                >
+                                    <div className="absolute top-3 right-3 flex items-center gap-1 z-10 transition-all opacity-0 group-hover:opacity-100">
+                                        <button
+                                            onClick={(e) => handleTogglePriority(e, proj)}
+                                            className={`p-1 hover:text-yellow-400 transition-colors ${proj.isPriority ? 'text-yellow-400' : 'text-slate-300'}`}
+                                            title={proj.isPriority ? "Hapus dari Prioritas" : "Jadikan Prioritas"}
+                                        >
+                                            <span className="material-symbols-outlined text-lg" style={proj.isPriority ? { fontVariationSettings: "'FILL' 1" } : {}}>star</span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(proj.id); }}
+                                            className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                                            title="Hapus Project"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">delete</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-between items-start mb-4 pr-6">
+                                        <div className="bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 w-10 h-10 flex items-center justify-center rounded-lg">
+                                            <span className="material-symbols-outlined text-xl">
+                                                {proj.category === 'Liburan' ? 'flight' : proj.category === 'Rumah' ? 'home' : proj.category === 'Elektronik' ? 'devices' : 'list'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <h4 className="font-bold text-slate-900 dark:text-white mb-1 leading-snug">{proj.title}</h4>
+                                    <p className="text-xs text-slate-500 dark:text-gray-400 line-clamp-2 mb-4">{proj.description}</p>
+
+                                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-surface-border/50">
+                                        <span className={`text-xs font-bold px-2 py-1 rounded ${proj.status === 'Selesai' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                            proj.status === 'On Progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400'
+                                            }`}>
+                                            {proj.status}
+                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            {(() => {
+                                                const stats = getProjectStats(proj);
+                                                return (
+                                                    <>
+                                                        <span className="text-xs font-bold text-slate-900 dark:text-white capitalize text-right">
+                                                            <span className="text-[10px] font-normal opacity-70 mr-1 block">{stats.label}</span>
+                                                            {formatRupiah(stats.value)}
+                                                        </span>
+                                                        {(stats.isBusiness || stats.hasActivity) && (
+                                                            <span className={`text-[10px] font-bold ${stats.isBusiness
+                                                                ? (stats.secondaryValue > 0 ? "text-green-500" : "text-red-500")
+                                                                : (stats.secondaryValue > stats.value ? "text-red-500" : "text-blue-500")
+                                                                }`}>
+                                                                {stats.secondaryLabel}: {formatRupiah(Math.abs(stats.secondaryValue))}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Add Project Modal */}
+                {showAddProject && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowAddProject(false)}>
+                        <div className="bg-white dark:bg-surface-dark p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-white/10 relative" onClick={e => e.stopPropagation()}>
+                            <button
+                                onClick={() => setShowAddProject(false)}
+                                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="bg-primary/10 w-12 h-12 rounded-2xl flex items-center justify-center text-primary shadow-sm shadow-primary/20">
+                                    <span className="material-symbols-outlined text-2xl">edit_note</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Project Baru</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Isi detail project impianmu di sini.</p>
+                                </div>
+                            </div>
+
                             <form onSubmit={handleAddProject} className="flex flex-col gap-5">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Nama Project</label>
@@ -214,19 +453,20 @@ export default function ProjectPage() {
                                         type="text"
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
-                                        className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-lg px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600"
+                                        className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600"
                                         placeholder="Contoh: Renovasi Dapur"
+                                        autoFocus
                                         required
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Deskripsi Singkat</label>
                                     <textarea
-                                        rows={3}
+                                        rows={2}
                                         value={desc}
                                         onChange={(e) => setDesc(e.target.value)}
-                                        className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-lg px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600 resize-none"
-                                        placeholder="Detail project yang akan dilakukan..."
+                                        className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600 resize-none"
+                                        placeholder="Detail project..."
                                     ></textarea>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -240,7 +480,7 @@ export default function ProjectPage() {
                                                     const val = e.target.value.replace(/\D/g, "");
                                                     setCost(val);
                                                 }}
-                                                className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-lg px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600"
+                                                className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600"
                                                 placeholder="Rp 0"
                                                 required
                                             />
@@ -252,7 +492,7 @@ export default function ProjectPage() {
                                             type="date"
                                             value={deadline}
                                             onChange={(e) => setDeadline(e.target.value)}
-                                            className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-lg px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all dark:[color-scheme:dark]"
+                                            className="w-full bg-gray-50 dark:bg-[#221117] border border-gray-200 dark:border-surface-border rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all dark:[color-scheme:dark]"
                                             required
                                         />
                                     </div>
@@ -275,170 +515,36 @@ export default function ProjectPage() {
                                         ))}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
                                     <input
                                         type="checkbox"
                                         id="priority"
                                         checked={isPriority}
                                         onChange={(e) => setIsPriority(e.target.checked)}
-                                        className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 accent-primary"
                                     />
-                                    <label htmlFor="priority" className="text-sm font-medium text-gray-900 dark:text-gray-300">Jadikan Prioritas Utama</label>
+                                    <label htmlFor="priority" className="text-sm font-medium text-slate-700 dark:text-yellow-100 cursor-pointer select-none">Jadikan Prioritas Utama (Tampil di atas)</label>
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="mt-2 w-full flex items-center justify-center py-3 rounded-lg bg-primary hover:bg-rose-600 text-white font-bold text-sm shadow-md shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50"
-                                >
-                                    {isSubmitting ? "Menyimpan..." : "Simpan Project"}
-                                </button>
+                                <div className="flex gap-3 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddProject(false)}
+                                        className="flex-1 py-3 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                                    >
+                                        Batal
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="flex-[2] py-3 rounded-xl bg-primary hover:bg-rose-600 text-white font-bold text-sm shadow-lg shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? "Menyimpan..." : "Simpan Project"}
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
-
-                    <div className="lg:col-span-2 order-1 lg:order-2 flex flex-col gap-6">
-                        {/* Priority Project Cards (Max 3) */}
-                        {priorityProjects.length > 0 && (
-                            <div className="grid grid-cols-1 gap-6">
-                                {priorityProjects.map(proj => (
-                                    <div key={proj.id} className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-surface-dark dark:to-[#1a0c10] border border-gray-200 dark:border-surface-border shadow-lg p-6 relative overflow-hidden text-white group cursor-pointer transition-all hover:scale-[1.01]"
-                                        onClick={() => router.push(`/project/${proj.id}`)}
-                                    >
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-primary/30 transition-colors duration-500"></div>
-                                        <div className="relative z-10 flex flex-col h-full justify-between gap-6">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={(e) => handleTogglePriority(e, proj)}
-                                                        className="bg-white/10 w-12 h-12 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/10 shadow-inner hover:bg-white/20 transition-colors"
-                                                        title="Hapus dari Prioritas"
-                                                    >
-                                                        <span className="material-symbols-outlined text-yellow-400 text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                                                    </button>
-                                                    <div>
-                                                        <span className="text-xs font-bold text-primary uppercase tracking-wider block mb-0.5">Prioritas Utama</span>
-                                                        <h3 className="text-xl md:text-2xl font-bold">{proj.title}</h3>
-                                                    </div>
-                                                </div>
-                                                <div className={`px-3 py-1 rounded-full text-xs font-bold border ${proj.status === 'Selesai' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
-                                                    proj.status === 'On Progress' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' :
-                                                        'bg-white/10 border-white/10'
-                                                    }`}>
-                                                    {proj.status}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-white/10">
-                                                <div className="relative group/edit">
-                                                    <span className="text-xs opacity-60 block">Estimasi Biaya</span>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-bold">{formatRupiah(proj.cost || proj.capitalInitial || 0)}</span>
-                                                        <button
-                                                            onClick={(e) => openQuickEdit(e, proj)}
-                                                            className="opacity-0 group-hover/edit:opacity-100 hover:text-primary transition-opacity"
-                                                        >
-                                                            <span className="material-symbols-outlined text-sm">edit</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="relative group/edit">
-                                                    <span className="text-xs opacity-60 block">Deadline</span>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-bold">{proj.deadline}</span>
-                                                        <button
-                                                            onClick={(e) => openQuickEdit(e, proj)}
-                                                            className="opacity-0 group-hover/edit:opacity-100 hover:text-primary transition-opacity"
-                                                        >
-                                                            <span className="material-symbols-outlined text-sm">edit</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs opacity-60 block">Kategori</span>
-                                                    <span className="font-bold">{proj.category}</span>
-                                                    {(proj.soldUnits && proj.sellingPrice) ? (
-                                                        <span className={`text-[10px] font-bold block mt-1 ${(proj.sellingPrice * proj.soldUnits) - ((proj.capitalInitial || 0) + (proj.capitalAdditional || 0) + (proj.expenditure || 0)) > 0 ? "text-green-400" : "text-red-400"}`}>
-                                                            Laba: {formatRupiah((proj.sellingPrice * proj.soldUnits) - ((proj.capitalInitial || 0) + (proj.capitalAdditional || 0) + (proj.expenditure || 0)))}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                                <div className="flex items-center justify-end">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(proj.id); }}
-                                                        className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-red-500/80 text-white transition-colors"
-                                                        title="Hapus Project"
-                                                    >
-                                                        <span className="material-symbols-outlined text-lg">close</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Recent Projects (Non-Priority) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {otherProjects.length === 0 && priorityProjects.length === 0 ? (
-                                <div className="col-span-full py-12 text-center text-slate-400 bg-white dark:bg-surface-dark rounded-2xl border border-dashed border-gray-200 dark:border-surface-border">
-                                    <span className="material-symbols-outlined text-4xl mb-2 opacity-50">folder_open</span>
-                                    <p>Belum ada project. Yuk mulai buat!</p>
-                                </div>
-                            ) : (
-                                otherProjects.map((proj) => (
-                                    <div key={proj.id} className="group bg-white dark:bg-surface-dark rounded-2xl p-5 border border-gray-200 dark:border-surface-border hover:border-primary/50 dark:hover:border-primary/50 transition-all cursor-pointer relative shadow-sm hover:shadow-md h-full flex flex-col justify-between"
-                                        onClick={() => router.push(`/project/${proj.id}`)}
-                                    >
-                                        <div className="absolute top-3 right-3 flex items-center gap-1 z-10 transition-all opacity-0 group-hover:opacity-100">
-                                            <button
-                                                onClick={(e) => handleTogglePriority(e, proj)}
-                                                className={`p-1 hover:text-yellow-400 transition-colors ${proj.isPriority ? 'text-yellow-400' : 'text-slate-300'}`}
-                                                title={proj.isPriority ? "Hapus dari Prioritas" : "Jadikan Prioritas"}
-                                            >
-                                                <span className="material-symbols-outlined text-lg" style={proj.isPriority ? { fontVariationSettings: "'FILL' 1" } : {}}>star</span>
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDelete(proj.id); }}
-                                                className="p-1 text-slate-300 hover:text-red-500 transition-colors"
-                                                title="Hapus Project"
-                                            >
-                                                <span className="material-symbols-outlined text-lg">delete</span>
-                                            </button>
-                                        </div>
-
-                                        <div className="flex justify-between items-start mb-4 pr-6">
-                                            <div className="bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 p-2 rounded-lg">
-                                                <span className="material-symbols-outlined text-xl">
-                                                    {proj.category === 'Liburan' ? 'flight' : proj.category === 'Rumah' ? 'home' : proj.category === 'Elektronik' ? 'devices' : 'list'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <h4 className="font-bold text-slate-900 dark:text-white mb-1 leading-snug">{proj.title}</h4>
-                                        <p className="text-xs text-slate-500 dark:text-gray-400 line-clamp-2 mb-4">{proj.description}</p>
-
-                                        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-surface-border/50">
-                                            <span className={`text-xs font-bold px-2 py-1 rounded ${proj.status === 'Selesai' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                proj.status === 'On Progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                    'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400'
-                                                }`}>
-                                                {proj.status}
-                                            </span>
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-xs font-bold text-slate-900 dark:text-white">{formatRupiah(proj.cost || proj.capitalInitial || 0)}</span>
-                                                {(proj.soldUnits && proj.sellingPrice) ? (
-                                                    <span className={`text-[10px] font-bold ${(proj.sellingPrice * proj.soldUnits) - ((proj.capitalInitial || 0) + (proj.capitalAdditional || 0) + (proj.expenditure || 0)) > 0 ? "text-green-500" : "text-red-500"}`}>
-                                                        Laba: {formatRupiah((proj.sellingPrice * proj.soldUnits) - ((proj.capitalInitial || 0) + (proj.capitalAdditional || 0) + (proj.expenditure || 0)))}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* Quick Edit Modal */}
                 {showQuickEdit && quickEditData && (
@@ -489,7 +595,6 @@ export default function ProjectPage() {
                         </div>
                     </div>
                 )}
-
             </main>
         </div>
     );

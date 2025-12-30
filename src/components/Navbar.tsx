@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
 
 export default function Navbar() {
     const pathname = usePathname();
+    const router = useRouter();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
+
+    // Image Upload State
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [showImageModal, setShowImageModal] = useState(false);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
     // Video Preview State
     const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -17,6 +23,45 @@ export default function Navbar() {
     const [videoDuration, setVideoDuration] = useState(0);
     const [coverTime, setCoverTime] = useState(0);
     const [showVideoModal, setShowVideoModal] = useState(false);
+
+    // Common Metadata State
+    const [uploadTitle, setUploadTitle] = useState("");
+    const [uploadDate, setUploadDate] = useState("");
+    const [coverGravity, setCoverGravity] = useState("center");
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    // Session Check & Logout Logic
+    useEffect(() => {
+        const checkSession = () => {
+            const session = localStorage.getItem("auth_session");
+            if (session) {
+                try {
+                    const { loginTime } = JSON.parse(session);
+                    // 24 hours = 86400000 ms
+                    if (Date.now() - loginTime > 86400000) {
+                        handleLogout();
+                    }
+                } catch (e) {
+                    console.error("Session parse error", e);
+                }
+            }
+        };
+
+        checkSession();
+        const interval = setInterval(checkSession, 60000); // Check every minute
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleLogout = () => {
+        if (confirm("Apakah Anda yakin ingin keluar?")) {
+            localStorage.removeItem("auth_session");
+            document.cookie = "auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
+            router.push("/");
+        }
+    };
 
     if (pathname === "/") return null;
 
@@ -33,81 +78,141 @@ export default function Navbar() {
         if (!e.target.files?.[0]) return;
         const file = e.target.files[0];
 
+        // Reset metadata
+        setUploadTitle("");
+        setUploadDate(new Date().toISOString().split('T')[0]); // Default today
+
         if (type === 'video') {
             const url = URL.createObjectURL(file);
             setVideoFile(file);
             setVideoPreviewUrl(url);
-            setCoverTime(0); // Reset time
+            setCoverTime(0);
             setShowVideoModal(true);
-            // Reset input value so same file can be selected again if cancelled
-            e.target.value = "";
         } else {
-            // Direct upload for images
-            processUpload(file, 'image');
+            const url = URL.createObjectURL(file);
+            setImageFile(file);
+            setImagePreviewUrl(url);
+            setShowImageModal(true);
+            setCoverGravity("center"); // Reset gravity
         }
+        e.target.value = ""; // Reset input
     };
 
-    const processUpload = async (file: File, type: 'image' | 'video', timestamp: number = 0) => {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("upload_preset", "our_space_upload");
-        formData.append("tags", type === 'image' ? 'gallery' : 'video');
+    const handleGravityClick = (x: number, y: number) => {
+
+        // Simple 3x3 Grid Logic
+        let v = "center";
+        let h = "center";
+
+        if (y < 0.33) v = "north";
+        else if (y > 0.66) v = "south";
+
+        if (x < 0.33) h = "west";
+        else if (x > 0.66) h = "east";
+
+        if (v === "center" && h === "center") setCoverGravity("center");
+        else if (v === "center") setCoverGravity(h);
+        else if (h === "center") setCoverGravity(v);
+        else setCoverGravity(`${v}_${h}`);
+    };
+
+    const getIndicatorPos = (gravity: string) => {
+        const map: Record<string, { x: string, y: string }> = {
+            center: { x: '50%', y: '50%' },
+            north: { x: '50%', y: '15%' },
+            south: { x: '50%', y: '85%' },
+            east: { x: '85%', y: '50%' },
+            west: { x: '15%', y: '50%' },
+            north_east: { x: '85%', y: '15%' },
+            north_west: { x: '15%', y: '15%' },
+            south_east: { x: '85%', y: '85%' },
+            south_west: { x: '15%', y: '85%' },
+        };
+        return map[gravity] || map.center;
+    };
+
+    const processUpload = async (type: 'image' | 'video') => {
+        const file = type === 'image' ? imageFile : videoFile;
+        if (!file) return;
 
         setIsUploading(true);
         setUploadProgress(0);
-        setShowVideoModal(false); // Close modal if open
+        setShowImageModal(false);
+        setShowVideoModal(false);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `https://api.cloudinary.com/v1_1/dtpskj8gv/${type}/upload`);
+        try {
+            const timestamp = Math.round(new Date().getTime() / 1000);
+            const tags = type === 'image' ? 'gallery' : 'video';
 
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 100);
-                setUploadProgress(percentComplete);
+            // Build Context Metadata
+            let context = `caption=${uploadTitle}|date=${uploadDate}|cover_gravity=${coverGravity}`;
+            if (type === 'video') {
+                context += `|duration=${videoDuration}|cover_offset=${coverTime}`;
             }
-        };
 
-        xhr.onload = () => {
+            // 1. Get Signature from Server
+            const signRes = await fetch('/api/sign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    paramsToSign: {
+                        timestamp,
+                        tags,
+                        context
+                    }
+                })
+            });
+
+            if (!signRes.ok) throw new Error("Failed to sign request");
+            const { signature, apiKey, cloudName } = await signRes.json();
+
+            // 2. Upload to Cloudinary with Signature
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("api_key", apiKey);
+            formData.append("timestamp", timestamp.toString());
+            formData.append("signature", signature);
+            formData.append("tags", tags);
+            formData.append("context", context);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/${type}/upload`);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    setUploadProgress(percentComplete);
+                }
+            };
+
+            xhr.onload = () => {
+                setIsUploading(false);
+                if (xhr.status === 200) {
+                    alert(`Upload berhasil!`);
+                    window.location.reload(); // Reload to fetch new data from API
+                } else {
+                    console.error("Upload failed", xhr.responseText);
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        alert("Upload gagal: " + (err.error?.message || "Unknown error"));
+                    } catch (e) {
+                        alert("Upload gagal: " + xhr.responseText);
+                    }
+                }
+            };
+
+            xhr.onerror = () => {
+                setIsUploading(false);
+                alert("Terjadi kesalahan jaringan.");
+            };
+
+            xhr.send(formData);
+
+        } catch (error) {
+            console.error(error);
             setIsUploading(false);
-            if (xhr.status === 200) {
-                const data = JSON.parse(xhr.responseText);
-
-                // Construct Thumbnail URL with offset if video
-                const thumbnailParams = type === 'video'
-                    ? `so_${timestamp},w_400,h_250,c_fill`
-                    : `w_400,h_250,c_fill`;
-
-                const imageUrl = type === 'image'
-                    ? data.secure_url
-                    : `https://res.cloudinary.com/dtpskj8gv/video/upload/${thumbnailParams}/${data.public_id}.jpg`;
-
-                const newItem = {
-                    title: "Uploaded " + (type === 'image' ? 'Foto' : 'Vidio'),
-                    date: new Date().toLocaleDateString(),
-                    tag: "Upload",
-                    img: imageUrl,
-                    videoUrl: type === 'video' ? data.secure_url : undefined,
-                    duration: type === 'video' ? formatDuration(videoDuration || 0) : undefined // Use preview duration if available
-                };
-
-                const storageKey = type === 'image' ? 'uploaded_gallery_items' : 'uploaded_video_items';
-                const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
-                localStorage.setItem(storageKey, JSON.stringify([newItem, ...existing]));
-
-                alert(`Upload berhasil!`);
-                window.location.reload();
-            } else {
-                console.error("Upload failed", xhr.responseText);
-                alert("Upload gagal.");
-            }
-        };
-
-        xhr.onerror = () => {
-            setIsUploading(false);
-            alert("Terjadi kesalahan jaringan.");
-        };
-
-        xhr.send(formData);
+            alert("Terjadi kesalahan saat menyiapkan upload.");
+        }
     };
 
     const formatDuration = (seconds: number) => {
@@ -118,38 +223,266 @@ export default function Navbar() {
 
     return (
         <>
-            {/* Video Cover Selection Modal */}
-            {showVideoModal && videoPreviewUrl && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-4 border border-white/10">
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Pilih Cover Vidio</h3>
+            {/* Image Details Modal */}
+            {showImageModal && imagePreviewUrl && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col gap-4 border border-white/10">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Detail Foto</h3>
 
-                        <div className="relative aspect-video bg-black rounded-lg overflow-hidden grid place-items-center">
-                            <video
-                                src={videoPreviewUrl}
-                                className="w-full h-full object-contain"
-                                onLoadedMetadata={(e) => setVideoDuration(e.currentTarget.duration)}
-                                key={videoPreviewUrl} // Force reload if url changes
-                                ref={(el) => { if (el) el.currentTime = coverTime; }} // Sync current time
-                                muted // Mute for preview
-                            />
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                                Posisi Fokus Thumbnail ({coverGravity.replace('_', ' ')})
+                            </label>
+                            <div className="relative aspect-square bg-black rounded-lg overflow-hidden cursor-move group touch-none select-none"
+                                onMouseDown={(e) => {
+                                    const target = e.currentTarget as HTMLElement;
+                                    const rect = target.getBoundingClientRect();
+                                    const x = (e.clientX - rect.left) / rect.width;
+                                    const y = (e.clientY - rect.top) / rect.height;
+                                    handleGravityClick(x, y);
+
+                                    const handleMouseMove = (ev: MouseEvent) => {
+                                        const rx = (ev.clientX - rect.left) / rect.width;
+                                        const ry = (ev.clientY - rect.top) / rect.height;
+                                        handleGravityClick(rx, ry);
+                                    };
+
+                                    const handleMouseUp = () => {
+                                        window.removeEventListener('mousemove', handleMouseMove);
+                                        window.removeEventListener('mouseup', handleMouseUp);
+                                    };
+
+                                    window.addEventListener('mousemove', handleMouseMove);
+                                    window.addEventListener('mouseup', handleMouseUp);
+                                }}
+                                onTouchStart={(e) => {
+                                    const target = e.currentTarget as HTMLElement;
+                                    const rect = target.getBoundingClientRect();
+                                    const x = (e.touches[0].clientX - rect.left) / rect.width;
+                                    const y = (e.touches[0].clientY - rect.top) / rect.height;
+                                    handleGravityClick(x, y);
+
+                                    const handleTouchMove = (ev: TouchEvent) => {
+                                        const rx = (ev.touches[0].clientX - rect.left) / rect.width;
+                                        const ry = (ev.touches[0].clientY - rect.top) / rect.height;
+                                        handleGravityClick(rx, ry);
+                                    };
+
+                                    const handleTouchEnd = () => {
+                                        window.removeEventListener('touchmove', handleTouchMove);
+                                        window.removeEventListener('touchend', handleTouchEnd);
+                                    };
+
+                                    window.addEventListener('touchmove', handleTouchMove);
+                                    window.addEventListener('touchend', handleTouchEnd);
+                                }}
+                            >
+                                <img
+                                    src={imagePreviewUrl}
+                                    className="w-full h-full object-cover pointer-events-none opacity-80"
+                                    style={{
+                                        objectPosition: `${getIndicatorPos(coverGravity).x} ${getIndicatorPos(coverGravity).y}`
+                                    }}
+                                    alt="Preview"
+                                />
+
+                                {/* Grid Lines */}
+                                <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+                                    {[...Array(9)].map((_, i) => <div key={i} className="border border-white/50"></div>)}
+                                </div>
+
+                                {/* Focus Indicator */}
+                                <div
+                                    className="absolute w-8 h-8 -ml-4 -mt-4 border-2 border-primary bg-primary/20 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg shadow-black/50"
+                                    style={{
+                                        left: getIndicatorPos(coverGravity).x,
+                                        top: getIndicatorPos(coverGravity).y
+                                    }}
+                                >
+                                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                                </div>
+
+                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+                                    Geser titik fokus
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <div className="flex justify-between text-xs text-slate-500 font-medium">
-                                <span>{formatDuration(coverTime)}</span>
-                                <span>{formatDuration(videoDuration)}</span>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Judul / Caption</label>
+                                <input
+                                    type="text"
+                                    value={uploadTitle}
+                                    onChange={e => setUploadTitle(e.target.value)}
+                                    placeholder="Contoh: Kencan Pertama"
+                                    className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max={videoDuration || 100}
-                                step="0.1"
-                                value={coverTime}
-                                onChange={(e) => setCoverTime(parseFloat(e.target.value))}
-                                className="w-full accent-primary h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700"
-                            />
-                            <p className="text-xs text-center text-slate-400">Geser slider untuk memilih tampilan cover yang pas</p>
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Tanggal</label>
+                                <input
+                                    type="date"
+                                    value={uploadDate}
+                                    onChange={e => setUploadDate(e.target.value)}
+                                    className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-2">
+                            <button
+                                onClick={() => { setShowImageModal(false); setImagePreviewUrl(null); }}
+                                className="flex-1 px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={() => processUpload('image')}
+                                className="flex-1 px-4 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
+                            >
+                                Upload
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Video Details Modal */}
+            {showVideoModal && videoPreviewUrl && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-4 border border-white/10">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Detail Vidio</h3>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Judul</label>
+                                    <input
+                                        type="text"
+                                        value={uploadTitle}
+                                        onChange={e => setUploadTitle(e.target.value)}
+                                        placeholder="Judul Vidio"
+                                        className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Tanggal</label>
+                                    <input
+                                        type="date"
+                                        value={uploadDate}
+                                        onChange={e => setUploadDate(e.target.value)}
+                                        className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Cover Gravity Interaction */}
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                                    Posisi Fokus Cover ({coverGravity.replace('_', ' ')})
+                                </label>
+                                <div
+                                    className="relative aspect-video bg-black rounded-lg overflow-hidden cursor-move group touch-none select-none"
+                                    onMouseDown={(e) => {
+                                        const target = e.currentTarget as HTMLElement;
+                                        const rect = target.getBoundingClientRect();
+                                        const x = (e.clientX - rect.left) / rect.width;
+                                        const y = (e.clientY - rect.top) / rect.height;
+                                        handleGravityClick(x, y);
+
+                                        const handleMouseMove = (ev: MouseEvent) => {
+                                            const rx = (ev.clientX - rect.left) / rect.width;
+                                            const ry = (ev.clientY - rect.top) / rect.height;
+                                            handleGravityClick(rx, ry);
+                                        };
+
+                                        const handleMouseUp = () => {
+                                            window.removeEventListener('mousemove', handleMouseMove);
+                                            window.removeEventListener('mouseup', handleMouseUp);
+                                        };
+
+                                        window.addEventListener('mousemove', handleMouseMove);
+                                        window.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                    onTouchStart={(e) => {
+                                        const target = e.currentTarget as HTMLElement;
+                                        const rect = target.getBoundingClientRect();
+                                        const x = (e.touches[0].clientX - rect.left) / rect.width;
+                                        const y = (e.touches[0].clientY - rect.top) / rect.height;
+                                        handleGravityClick(x, y);
+
+                                        const handleTouchMove = (ev: TouchEvent) => {
+                                            const rx = (ev.touches[0].clientX - rect.left) / rect.width;
+                                            const ry = (ev.touches[0].clientY - rect.top) / rect.height;
+                                            handleGravityClick(rx, ry);
+                                        };
+
+                                        const handleTouchEnd = () => {
+                                            window.removeEventListener('touchmove', handleTouchMove);
+                                            window.removeEventListener('touchend', handleTouchEnd);
+                                        };
+
+                                        window.addEventListener('touchmove', handleTouchMove);
+                                        window.addEventListener('touchend', handleTouchEnd);
+                                    }}
+                                >
+                                    <video
+                                        ref={videoRef}
+                                        src={videoPreviewUrl}
+                                        className="w-full h-full object-cover pointer-events-none opacity-80 transition-all duration-200"
+                                        style={{
+                                            objectPosition: `${getIndicatorPos(coverGravity).x} ${getIndicatorPos(coverGravity).y}`
+                                        }}
+                                        onLoadedMetadata={(e) => setVideoDuration(e.currentTarget.duration)}
+                                        key={videoPreviewUrl}
+                                        muted
+                                    />
+
+                                    {/* Grid Lines for visual aid */}
+                                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+                                        {[...Array(9)].map((_, i) => <div key={i} className="border border-white/50"></div>)}
+                                    </div>
+
+                                    {/* Focus Indicator */}
+                                    <div
+                                        className="absolute w-8 h-8 -ml-4 -mt-4 border-2 border-primary bg-primary/20 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg shadow-black/50"
+                                        style={{
+                                            left: getIndicatorPos(coverGravity).x,
+                                            top: getIndicatorPos(coverGravity).y
+                                        }}
+                                    >
+                                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                                    </div>
+
+                                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+                                        Geser untuk atur posisi
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cover Selection Slider */}
+                            <div className="flex flex-col gap-2 bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-white/10">
+                                <label className="text-xs font-bold uppercase text-slate-500">Pilih Frame Cover</label>
+                                <div className="flex justify-between text-xs text-slate-500 font-medium font-mono">
+                                    <span>{formatDuration(coverTime)}</span>
+                                    <span>{formatDuration(videoDuration)}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max={videoDuration || 100}
+                                    step="0.1"
+                                    value={coverTime}
+                                    onChange={(e) => {
+                                        const time = parseFloat(e.target.value);
+                                        setCoverTime(time);
+                                        if (videoRef.current) videoRef.current.currentTime = time;
+                                    }}
+                                    className="w-full accent-primary h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 hover:accent-primary/80 transition-all"
+                                />
+                                <p className="text-[10px] text-center text-slate-400">Geser untuk memilih detik keberapa yang jadi cover</p>
+                            </div>
                         </div>
 
                         <div className="flex gap-3 mt-2">
@@ -160,32 +493,35 @@ export default function Navbar() {
                                 Batal
                             </button>
                             <button
-                                onClick={() => videoFile && processUpload(videoFile, 'video', coverTime)}
+                                onClick={() => processUpload('video')}
                                 className="flex-1 px-4 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
                             >
                                 Upload
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                </div >
+            )
+            }
 
             {/* Progress Modal */}
-            {isUploading && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col items-center gap-4 border border-white/10">
-                        <div className="relative size-16 flex items-center justify-center">
-                            <svg className="size-full -rotate-90">
-                                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-200 dark:text-slate-700" />
-                                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="none" className="text-primary transition-all duration-300" strokeDasharray="176" strokeDashoffset={176 - (176 * uploadProgress) / 100} />
-                            </svg>
-                            <span className="absolute text-sm font-bold text-slate-900 dark:text-white">{uploadProgress}%</span>
+            {
+                isUploading && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                        <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col items-center gap-4 border border-white/10">
+                            <div className="relative size-16 flex items-center justify-center">
+                                <svg className="size-full -rotate-90">
+                                    <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-200 dark:text-slate-700" />
+                                    <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="none" className="text-primary transition-all duration-300" strokeDasharray="176" strokeDashoffset={176 - (176 * uploadProgress) / 100} />
+                                </svg>
+                                <span className="absolute text-sm font-bold text-slate-900 dark:text-white">{uploadProgress}%</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Mengupload...</h3>
+                            <p className="text-sm text-slate-500 text-center">Mohon tunggu sebentar, kenangan indah sedang disimpan ke Awan.</p>
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Mengupload...</h3>
-                        <p className="text-sm text-slate-500 text-center">Mohon tunggu sebentar, kenangan indah sedang disimpan.</p>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <header className="sticky top-0 z-50 w-full border-b border-black/5 dark:border-white/10 bg-surface-light/80 dark:bg-background-dark/80 backdrop-blur-md">
                 <div className="w-full max-w-[1440px] mx-auto px-6 md:px-10 lg:px-40 py-3 flex items-center justify-between relative">
@@ -223,31 +559,73 @@ export default function Navbar() {
                             <label className="flex items-center justify-center gap-2 rounded-lg h-9 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20 cursor-pointer active:scale-95">
                                 <span className="material-symbols-outlined text-[20px]">add_a_photo</span>
                                 <span className="hidden sm:inline">Upload Foto</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={(e) => onFileSelect(e, 'image')} />
+                                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={(e) => onFileSelect(e, 'image')} />
                             </label>
                         )}
                         {pathname === "/video" && (
                             <label className="flex items-center justify-center gap-2 rounded-lg h-9 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20 cursor-pointer active:scale-95">
                                 <span className="material-symbols-outlined text-[20px]">video_call</span>
                                 <span className="hidden sm:inline">Upload Vidio</span>
-                                <input type="file" accept="video/*" className="hidden" onChange={(e) => onFileSelect(e, 'video')} />
+                                <input type="file" accept="video/*" className="hidden" ref={videoInputRef} onChange={(e) => onFileSelect(e, 'video')} />
                             </label>
                         )}
+
+                        <button
+                            onClick={handleLogout}
+                            className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xs transition-colors shadow-lg shadow-green-500/20"
+                            title="Keluar / Logout"
+                        >
+                            <span className="material-symbols-outlined text-lg">logout</span>
+                            <span>Keluar</span>
+                        </button>
 
                         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden text-slate-900 dark:text-white z-20">
                             <span className="material-symbols-outlined">menu</span>
                         </button>
                     </div>
                 </div>
-                {/* Mobile Menu */}
-                {isMenuOpen && (
-                    <div className="md:hidden px-6 py-4 bg-surface-light dark:bg-background-dark border-b border-white/10 flex flex-col gap-4">
+            </header>
+
+            {/* Mobile Menu Drawer - Moved Outside Header */}
+            <div className={clsx(
+                "fixed inset-0 z-[100] md:hidden transition-all duration-300",
+                isMenuOpen ? "visible pointer-events-auto" : "invisible pointer-events-none"
+            )}>
+                {/* Backdrop */}
+                <div
+                    className={clsx(
+                        "absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300",
+                        isMenuOpen ? "opacity-100" : "opacity-0"
+                    )}
+                    onClick={() => setIsMenuOpen(false)}
+                />
+
+                {/* Drawer */}
+                <div className={clsx(
+                    "absolute top-0 right-0 bottom-0 w-[280px] md:w-[320px] !bg-white dark:!bg-zinc-950 border-l border-gray-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-6 transition-transform duration-300 ease-out z-[110]",
+                    "text-slate-900 dark:text-white", // Default text color
+                    isMenuOpen ? "translate-x-0" : "translate-x-full"
+                )}>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Menu</h3>
+                        <button
+                            onClick={() => setIsMenuOpen(false)}
+                            className="p-2 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-white"
+                        >
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
                         {navItems.map((item) => (
                             <Link
                                 key={item.href}
                                 href={item.href}
                                 className={clsx(
-                                    pathname === item.href ? "text-primary font-bold" : "hover:text-primary dark:text-slate-300"
+                                    "px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200",
+                                    pathname === item.href
+                                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/30"
+                                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:bg-slate-200 dark:active:bg-white/10"
                                 )}
                                 onClick={() => setIsMenuOpen(false)}
                             >
@@ -255,8 +633,18 @@ export default function Navbar() {
                             </Link>
                         ))}
                     </div>
-                )}
-            </header>
+
+                    <div className="mt-auto pt-6 border-t border-slate-200 dark:border-white/10">
+                        <button
+                            onClick={() => { setIsMenuOpen(false); handleLogout(); }}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-xl font-bold text-sm transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-lg">logout</span>
+                            Keluar
+                        </button>
+                    </div>
+                </div>
+            </div>
         </>
     );
 }
