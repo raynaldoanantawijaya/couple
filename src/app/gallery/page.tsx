@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface GalleryItem {
     public_id: string;
@@ -15,8 +17,21 @@ export default function GalleryPage() {
     const [items, setItems] = useState<GalleryItem[]>([]);
     const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
     const [loading, setLoading] = useState(true);
+    const [favorites, setFavorites] = useState<Set<string>>(new Set());
+    const [filter, setFilter] = useState("Semua");
 
     useEffect(() => {
+        // Real-time listener for Favorites
+        const unsubFavorites = onSnapshot(collection(db, "favorites"), (snapshot) => {
+            const favSet = new Set<string>();
+            snapshot.docs.forEach(doc => {
+                if (doc.data().type === 'image') {
+                    favSet.add(doc.id);
+                }
+            });
+            setFavorites(favSet);
+        });
+
         // Fetch from Cloudinary API
         const fetchImages = async () => {
             try {
@@ -45,11 +60,30 @@ export default function GalleryPage() {
         };
 
         fetchImages();
+        return () => unsubFavorites();
     }, []);
 
     // Helper to generate download URL
     const getDownloadUrl = (url: string) => {
         return url.replace("/upload/", "/upload/fl_attachment/");
+    };
+
+    const toggleFavorite = async (public_id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const isFav = favorites.has(public_id);
+
+        try {
+            if (isFav) {
+                await deleteDoc(doc(db, "favorites", public_id));
+            } else {
+                await setDoc(doc(db, "favorites", public_id), {
+                    type: "image",
+                    createdAt: Date.now()
+                });
+            }
+        } catch (error) {
+            console.error("Error toggling favorite", error);
+        }
     };
 
     const handleDelete = async (public_id: string, e: React.MouseEvent) => {
@@ -78,6 +112,11 @@ export default function GalleryPage() {
         }
     };
 
+    const filteredItems = items.filter(item => {
+        if (filter === "Favorit") return favorites.has(item.public_id);
+        return true;
+    });
+
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20 font-display">
 
@@ -98,17 +137,19 @@ export default function GalleryPage() {
                     </div>
 
                     {/* Filters */}
-                    <div className="w-full overflow-x-auto pb-2">
+                    <div className="w-full overflow-x-auto p-4">
                         <div className="flex gap-3 min-w-max">
-                            {["Semua", "Upload"].map((filter, i) => (
+                            {["Semua", "Favorit"].map((f, i) => (
                                 <button
-                                    key={filter}
-                                    className={`flex h-9 items-center justify-center px-5 rounded-full text-sm font-medium transition-transform hover:scale-105 ${i === 0
-                                        ? "bg-primary text-white"
-                                        : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-primary/20 hover:border-primary/30 border border-transparent"
+                                    key={f}
+                                    onClick={() => setFilter(f)}
+                                    className={`flex h-9 items-center justify-center px-6 rounded-full text-sm font-bold transition-all transform hover:scale-105 active:scale-95 ${filter === f
+                                        ? "bg-primary text-white shadow-sm border border-transparent"
+                                        : "bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10"
                                         }`}
                                 >
-                                    {filter}
+                                    {f === "Favorit" && <span className="material-symbols-outlined text-sm mr-2" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>}
+                                    {f}
                                 </button>
                             ))}
                         </div>
@@ -120,11 +161,13 @@ export default function GalleryPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            {items.length === 0 && (
-                                <p className="text-slate-400 col-span-full text-center py-20">Belum ada foto.</p>
+                            {filteredItems.length === 0 && (
+                                <p className="text-slate-400 col-span-full text-center py-20">
+                                    {filter === "Favorit" ? "Belum ada foto favorit." : "Belum ada foto."}
+                                </p>
                             )}
 
-                            {items.map((item) => (
+                            {filteredItems.map((item) => (
                                 <div
                                     key={item.public_id}
                                     className="group relative aspect-square overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 cursor-pointer shadow-md transition-all hover:shadow-xl hover:shadow-primary/10"
@@ -148,14 +191,17 @@ export default function GalleryPage() {
 
                                     {/* Action Buttons */}
                                     <div className="absolute top-3 right-3 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                                        <div className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-primary transition-colors">
-                                            <span className="material-symbols-outlined text-xl">favorite_border</span>
-                                        </div>
+                                        <button
+                                            onClick={(e) => toggleFavorite(item.public_id, e)}
+                                            className={`w-10 h-10 grid place-items-center rounded-full transition-colors p-0 ${favorites.has(item.public_id) ? "bg-white/90 text-red-500 shadow-sm" : "bg-black/30 backdrop-blur-sm text-white hover:text-red-500"}`}
+                                        >
+                                            <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1" } : {}}>favorite</span>
+                                        </button>
                                         <div
                                             onClick={(e) => handleDelete(item.public_id, e)}
-                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-red-500 transition-colors"
+                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0"
                                         >
-                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                            <span className="material-symbols-outlined text-xl leading-none">delete</span>
                                         </div>
                                     </div>
                                 </div>

@@ -2,6 +2,8 @@
 
 import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
+import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface VideoItem {
     public_id: string;
@@ -16,6 +18,8 @@ interface VideoItem {
 export default function VideoPage() {
     const [items, setItems] = useState<VideoItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [favorites, setFavorites] = useState<Set<string>>(new Set());
+    const [filter, setFilter] = useState("Semua");
 
     const fetchItems = async () => {
         setLoading(true);
@@ -63,13 +67,44 @@ export default function VideoPage() {
     };
 
     useEffect(() => {
+        // Real-time listener for Favorites
+        const unsubFavorites = onSnapshot(collection(db, "favorites"), (snapshot) => {
+            const favSet = new Set<string>();
+            snapshot.docs.forEach(doc => {
+                if (doc.data().type === 'video') {
+                    favSet.add(doc.id);
+                }
+            });
+            setFavorites(favSet);
+        });
+
         fetchItems();
+        return () => unsubFavorites();
     }, []);
+
+    const toggleFavorite = async (public_id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const isFav = favorites.has(public_id);
+
+        try {
+            if (isFav) {
+                await deleteDoc(doc(db, "favorites", public_id));
+            } else {
+                await setDoc(doc(db, "favorites", public_id), {
+                    type: "video",
+                    createdAt: Date.now()
+                });
+            }
+        } catch (error) {
+            console.error("Error toggling favorite", error);
+        }
+    };
 
     const handleDelete = async (indexToDelete: number, item: VideoItem) => {
         if (!confirm("Apakah Anda yakin ingin menghapus vidio ini?")) return;
 
         // Optimistic update
+        const previousItems = [...items];
         setItems(prev => prev.filter(i => i.public_id !== item.public_id));
 
         try {
@@ -81,13 +116,20 @@ export default function VideoPage() {
             const data = await res.json();
             if (!data.success) {
                 alert("Gagal menghapus vidio.");
-                fetchItems();
+                setItems(previousItems); // Revert
             }
         } catch (error) {
             console.error("Error removing item", error);
+            alert("Gagal menghapus vidio.");
+            setItems(previousItems); // Revert
             fetchItems();
         }
     };
+
+    const filteredItems = items.filter(item => {
+        if (filter === "Favorit") return favorites.has(item.public_id);
+        return true;
+    });
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white overflow-x-hidden min-h-screen flex flex-col">
@@ -107,17 +149,19 @@ export default function VideoPage() {
                         </div>
                     </div>
 
-                    <div className="w-full overflow-x-auto pb-2">
+                    <div className="w-full overflow-x-auto p-4">
                         <div className="flex gap-3 min-w-max">
-                            {["Semua", "Upload"].map((filter, i) => (
+                            {["Semua", "Favorit"].map((f, i) => (
                                 <button
-                                    key={filter}
-                                    className={`flex h-9 items-center justify-center px-5 rounded-full text-sm font-medium transition-transform hover:scale-105 ${i === 0
-                                        ? "bg-primary text-white"
-                                        : "bg-surface-border text-white hover:bg-primary/20 hover:border-primary/30 border border-transparent"
+                                    key={f}
+                                    onClick={() => setFilter(f)}
+                                    className={`flex h-9 items-center justify-center px-6 rounded-full text-sm font-bold transition-all transform hover:scale-105 active:scale-95 ${filter === f
+                                        ? "bg-primary text-white shadow-sm border border-transparent"
+                                        : "bg-surface-border dark:bg-white/5 text-white hover:bg-white/10 border border-white/10"
                                         }`}
                                 >
-                                    {filter}
+                                    {f === "Favorit" && <span className="material-symbols-outlined text-sm mr-2" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>}
+                                    {f}
                                 </button>
                             ))}
                         </div>
@@ -129,11 +173,13 @@ export default function VideoPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                            {items.length === 0 && (
-                                <p className="text-slate-400 col-span-full text-center py-20">Belum ada vidio.</p>
+                            {filteredItems.length === 0 && (
+                                <p className="text-slate-400 col-span-full text-center py-20">
+                                    {filter === "Favorit" ? "Belum ada vidio favorit." : "Belum ada vidio."}
+                                </p>
                             )}
 
-                            {items.map((item, idx) => (
+                            {filteredItems.map((item, idx) => (
                                 <div key={idx} className="group relative aspect-video overflow-hidden rounded-xl bg-surface-dark cursor-pointer shadow-md transition-all hover:shadow-xl hover:shadow-primary/10"
                                     onClick={() => item.videoUrl && window.open(item.videoUrl, '_blank')}
                                 >
@@ -159,14 +205,17 @@ export default function VideoPage() {
                                         </div>
                                     </div>
                                     <div className="absolute top-3 right-3 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                                        <div className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-primary transition-colors">
-                                            <span className="material-symbols-outlined text-xl">favorite_border</span>
-                                        </div>
+                                        <button
+                                            onClick={(e) => toggleFavorite(item.public_id, e)}
+                                            className={`w-10 h-10 grid place-items-center rounded-full transition-colors p-0 ${favorites.has(item.public_id) ? "bg-white/90 text-red-500 shadow-sm" : "bg-black/30 backdrop-blur-sm text-white hover:text-red-500"}`}
+                                        >
+                                            <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1" } : {}}>favorite</span>
+                                        </button>
                                         <div
                                             onClick={(e) => { e.stopPropagation(); handleDelete(idx, item); }}
-                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 flex items-center justify-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer"
+                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0"
                                         >
-                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                            <span className="material-symbols-outlined text-xl leading-none">delete</span>
                                         </div>
                                     </div>
                                 </div>
