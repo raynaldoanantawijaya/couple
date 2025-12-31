@@ -2,6 +2,16 @@
 
 import { useState } from "react";
 
+// List of public Cobalt instances (Fallback Strategy)
+// These APIs support CORS, allowing direct browser access
+const COBALT_INSTANCES = [
+    "https://api.cobalt.tools",    // Official-ish
+    "https://co.wuk.sh",           // Popular
+    "https://cobalt.xy24.eu",      // EU Mirror
+    "https://api.wpsh.eu.org",     // Community
+    "https://cobalt.kwiatekmiki.pl"// Community
+];
+
 export default function YoutubeDownloader() {
     const [url, setUrl] = useState("");
     const [quality, setQuality] = useState("720");
@@ -11,72 +21,89 @@ export default function YoutubeDownloader() {
     const [updatingParams, setUpdatingParams] = useState(false);
     const [error, setError] = useState("");
 
-    // Main Fetch Function (Used for initial search AND updating params)
+    // --- CLIENT-SIDE FETCH LOGIC ---
+    const fetchDirectFromCobalt = async (targetUrl: string, targetType: string, targetQuality: string) => {
+        let lastError = null;
+
+        // Try each instance until one works
+        for (const instance of COBALT_INSTANCES) {
+            try {
+                console.log(`Trying Cobalt instance: ${instance}`);
+                const res = await fetch(`${instance}/api/json`, {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: targetUrl,
+                        vCodec: "h264",
+                        vQuality: targetQuality && targetQuality !== 'Highest' ? targetQuality.replace('p', '') : "1080",
+                        aFormat: "mp3",
+                        isAudioOnly: targetType === "audio"
+                    })
+                });
+
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.url || result.stream) {
+                        return {
+                            url: result.url,
+                            title: result.filename || "YouTube Video",
+                            thumbnail: "", // Cobalt often skips thumb in simple mode
+                            text: result.filename
+                        };
+                    }
+                }
+            } catch (err: any) {
+                console.warn(`Failed instance ${instance}:`, err);
+                lastError = err.message;
+            }
+        }
+
+        throw new Error(lastError || "Semua server sedang sibuk. Coba lagi nanti.");
+    };
+
+    // Main Fetch Function
     const handleFetch = async () => {
         if (!url) return;
 
-        // If data exists, we are just updating params (show smaller loader)
         if (data) {
             setUpdatingParams(true);
         } else {
             setLoading(true);
         }
-
         setError("");
 
         try {
-            const res = await fetch("/api/youtube-downloader", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    url: url,
-                    type: type,
-                    quality: quality
-                }),
-            });
-
-            const result = await res.json();
-
-            if (!res.ok) {
-                const errorMessage = result.error || "Gagal mengambil data";
-                throw new Error(errorMessage);
-            }
-
-            if (!result) {
-                throw new Error("No data received");
-            }
-
+            // Direct Client-Side Call
+            const result = await fetchDirectFromCobalt(url, type, quality);
             setData(result);
         } catch (err: any) {
             console.error(err);
-            setError(err.message || "Terjadi kesalahan. Pastikan link valid.");
+            setError(err.message || "Gagal mengambil data. Pastikan link valid.");
         } finally {
             setLoading(false);
             setUpdatingParams(false);
         }
     };
 
-    // Triggered when Quality changes (Only for Video)
-    const handleQualityChange = (newQuality: string) => {
+    // Triggered when Quality changes
+    const handleQualityChange = async (newQuality: string) => {
         setQuality(newQuality);
-        // Trigger fetch immediately with new quality, keeping current type/url
-        // Logic duplicated for clarity, but ideally should reuse handleFetch with args
         if (!url) return;
+
         setUpdatingParams(true);
         setError("");
 
-        fetch("/api/youtube-downloader", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, type, quality: newQuality }),
-        })
-            .then(res => res.json())
-            .then(result => {
-                if (!result || result.error) throw new Error(result?.error || "Error");
-                setData(result);
-            })
-            .catch(err => setError(err.message))
-            .finally(() => setUpdatingParams(false));
+        try {
+            const result = await fetchDirectFromCobalt(url, type, newQuality);
+            setData(result);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setUpdatingParams(false);
+        }
     };
 
     const getYouTubeID = (url: string) => {
@@ -90,17 +117,14 @@ export default function YoutubeDownloader() {
         if (!data) return null;
 
         // Parser
-        const raw = data.result || data.data || data;
-        let title = raw.title || raw.text || raw.caption || "Video YouTube";
+        const raw = data; // Cobalt data is flatter now
+        let title = raw.title || raw.text || "Video YouTube";
 
         // Thumbnail Logic
-        const thumbUrl = (Array.isArray(raw.thumbnail) ? raw.thumbnail[0].url : raw.thumbnail)
-            || raw.thumb
-            || raw.image
-            || (getYouTubeID(url) ? `https://img.youtube.com/vi/${getYouTubeID(url)}/hqdefault.jpg` : "");
+        const thumbUrl = (getYouTubeID(url) ? `https://img.youtube.com/vi/${getYouTubeID(url)}/hqdefault.jpg` : "");
 
         // Download Link Logic
-        let downloadUrl = raw.url || raw.link || raw.video || raw.audio || "";
+        let downloadUrl = raw.url || "";
 
         return (
             <div className="w-full max-w-2xl glass-card-premium rounded-2xl p-6 shadow-2xl border border-white/10 bg-white/5 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
@@ -173,8 +197,8 @@ export default function YoutubeDownloader() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`w-full py-4 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg border border-white/10 ${updatingParams
-                                        ? "bg-slate-700/50 cursor-wait opacity-80"
-                                        : "bg-gradient-to-br from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-500/20 active:scale-[0.98]"
+                                    ? "bg-slate-700/50 cursor-wait opacity-80"
+                                    : "bg-gradient-to-br from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-500/20 active:scale-[0.98]"
                                     }`}
                             >
                                 {updatingParams ? (
@@ -258,8 +282,8 @@ export default function YoutubeDownloader() {
                             onClick={() => handleFetch()}
                             disabled={loading || !url}
                             className={`px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-2 ${loading || !url
-                                    ? "bg-white/10 cursor-not-allowed text-slate-500"
-                                    : "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-500/30 active:scale-95"
+                                ? "bg-white/10 cursor-not-allowed text-slate-500"
+                                : "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-500/30 active:scale-95"
                                 }`}
                         >
                             {loading ? (
