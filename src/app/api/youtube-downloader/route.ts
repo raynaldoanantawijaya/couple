@@ -10,6 +10,16 @@ const BROWSER_HEADERS = {
     "Origin": "https://www.youtube.com"
 };
 
+// List of known public Cobalt instances
+// We will cycle through these if one fails
+const COBALT_INSTANCES = [
+    "https://api.cobalt.tools",    // Official-ish (often strictly rate limited)
+    "https://co.wuk.sh",           // Popular
+    "https://cobalt.xy24.eu",      // EU Mirror
+    "https://api.wpsh.eu.org",     // Community
+    "https://cobalt.kwiatekmiki.pl"// Community
+];
+
 export async function POST(req: NextRequest) {
     try {
         const { url, type, quality } = await req.json();
@@ -18,83 +28,85 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "URL is required" }, { status: 400 });
         }
 
-        console.log(`-> Processing YouTube Download: ${url} (Type: ${type}, Quality: ${quality})`);
+        console.log(`-> Processing YouTube Download: ${url}`);
 
-        // --- PROVIDER 1: Ryzumi (Primary) ---
-        // Good metadata, but strict IP blocking (403)
+        // --- STRATEGY: Try Cobalt Instances Round-Robin ---
+
+        let successData = null;
+        let lastError = null;
+
+        for (const instanceBase of COBALT_INSTANCES) {
+            try {
+                console.log(`-> Attempting Cobalt Instance: ${instanceBase}...`);
+                const apiUrl = `${instanceBase}/api/json`;
+
+                const cobaltRes = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "User-Agent": BROWSER_HEADERS["User-Agent"]
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        vCodec: "h264",
+                        vQuality: quality && quality !== 'Highest' ? quality.replace('p', '') : "1080",
+                        aFormat: "mp3",
+                        isAudioOnly: type === "audio"
+                    })
+                });
+
+                if (cobaltRes.ok) {
+                    const data = await cobaltRes.json();
+                    if (data.url || data.stream) {
+                        console.log(`-> Success via ${instanceBase}!`);
+                        successData = {
+                            url: data.url,
+                            title: data.filename || "YouTube Video",
+                            thumbnail: "",
+                            size: "Unknown"
+                        };
+                        break; // EXIT LOOP ON SUCCESS
+                    }
+                } else {
+                    console.warn(`-> Failed ${instanceBase}: ${cobaltRes.status}`);
+                    lastError = `Status ${cobaltRes.status}`;
+                }
+            } catch (e: any) {
+                console.warn(`-> Error ${instanceBase}: ${e.message}`);
+                lastError = e.message;
+            }
+        }
+
+        if (successData) {
+            return NextResponse.json(successData);
+        }
+
+        // --- FALLBACK: Ryzumi (If all Cobalt failed) ---
+        // As a last resort, try Ryzumi mechanism
         try {
-            console.log("-> Attempting Provider 1: Ryzumi...");
+            console.log("-> All Cobalt instances failed. Trying Ryzumi fallback...");
             let endpoint = "https://api.ryzumi.vip/api/downloader/ytmp4";
             if (type === "audio") endpoint = "https://api.ryzumi.vip/api/downloader/ytmp3";
+            const ryzUrl = new URL(endpoint);
+            ryzUrl.searchParams.append("url", url);
+            if (quality) ryzUrl.searchParams.append("quality", quality);
 
-            const targetUrl = new URL(endpoint);
-            targetUrl.searchParams.append("url", url);
-            if (quality) targetUrl.searchParams.append("quality", quality);
-
-            const res = await fetch(targetUrl.toString(), {
+            const ryzRes = await fetch(ryzUrl.toString(), {
                 method: "GET",
                 cache: "no-store",
                 headers: BROWSER_HEADERS
             });
-
-            if (res.ok) {
-                const data = await res.json();
-                console.log("-> Provider 1 Success!");
-                return NextResponse.json(data);
-            } else {
-                console.warn(`-> Provider 1 Failed: ${res.status} ${await res.text()}`);
+            if (ryzRes.ok) {
+                return NextResponse.json(await ryzRes.json());
             }
-        } catch (err) {
-            console.warn("-> Provider 1 Error:", err);
+        } catch (e) {
+            console.error("-> Ryzumi fallback failed too.");
         }
 
-        // --- PROVIDER 2: Cobalt Public Instance (Fallback) ---
-        // Very consistent, less blocking. Open source.
-        try {
-            console.log("-> Attempting Provider 2: Cobalt (wuk.sh)...");
-
-            // Cobalt API needs POST to /api/json
-            const cobaltRes = await fetch("https://co.wuk.sh/api/json", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "User-Agent": BROWSER_HEADERS["User-Agent"]
-                },
-                body: JSON.stringify({
-                    url: url,
-                    vCodec: "h264",
-                    vQuality: quality && quality !== 'Highest' ? quality.replace('p', '') : "1080",
-                    aFormat: "mp3",
-                    isAudioOnly: type === "audio"
-                })
-            });
-
-            if (cobaltRes.ok) {
-                const data = await cobaltRes.json();
-                console.log("-> Provider 2 Success!", data.status);
-
-                // Normalize cobalt response to match our frontend expectation (somewhat)
-                // Cobalt returns { url: "...", status: "stream" }
-                if (data.url) {
-                    return NextResponse.json({
-                        url: data.url,
-                        title: data.filename || "YouTube Video",
-                        thumbnail: "", // Cobalt doesn't always return thumb in this endpoint
-                        size: "Unknown"
-                    });
-                }
-            } else {
-                console.warn(`-> Provider 2 Failed: ${cobaltRes.status}`);
-            }
-
-        } catch (err) {
-            console.warn("-> Provider 2 Error:", err);
-        }
-
-        // --- ALL FAILED ---
+        // If here, everything failed
         return NextResponse.json(
-            { error: "All download providers failed to process this request. Access restricted." },
+            { error: "All download providers failed. Please try again later.", details: lastError },
             { status: 502 }
         );
 
