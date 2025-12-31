@@ -57,16 +57,24 @@ export default function GalleryPage() {
         if (!confirm("Yakin mau hapus foto ini?")) return;
 
         // Optimistic update
+        const previousItems = [...items];
         setItems(prev => prev.filter(i => i.public_id !== public_id));
 
         try {
-            await fetch('/api/delete', {
+            const res = await fetch('/api/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ public_id })
+                body: JSON.stringify({ public_id, resource_type: 'image' })
             });
+
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.error || "Deletion failed");
+            }
         } catch (error) {
             console.error("Delete failed", error);
+            alert("Gagal menghapus foto. Silakan coba lagi.");
+            setItems(previousItems); // Revert on failure
         }
     };
 
