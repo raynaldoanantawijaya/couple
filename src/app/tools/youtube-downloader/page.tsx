@@ -22,13 +22,39 @@ export default function YoutubeDownloader() {
     const [error, setError] = useState("");
 
     // --- CLIENT-SIDE FETCH LOGIC ---
-    const fetchDirectFromCobalt = async (targetUrl: string, targetType: string, targetQuality: string) => {
+    const fetchVideoData = async (targetUrl: string, targetType: string, targetQuality: string) => {
         let lastError = null;
 
-        // Try each instance until one works
+        // 1. Try Ryzumi (Primary - supports CORS)
+        try {
+            console.log("Trying Primary: Ryzumi...");
+            let endpoint = "https://api.ryzumi.vip/api/downloader/ytmp4";
+            if (targetType === "audio") endpoint = "https://api.ryzumi.vip/api/downloader/ytmp3";
+
+            const ryzUrl = new URL(endpoint);
+            ryzUrl.searchParams.append("url", targetUrl);
+            if (targetQuality) ryzUrl.searchParams.append("quality", targetQuality);
+
+            const res = await fetch(ryzUrl.toString());
+            if (res.ok) {
+                const data = await res.json();
+                // Ryzumi structure check
+                if (data.url || data.link || data.video) {
+                    return {
+                        ...data,
+                        url: data.url || data.link || data.video, // Normalize
+                    };
+                }
+            }
+        } catch (e: any) {
+            console.warn("Primary Ryzumi failed:", e);
+            lastError = e.message;
+        }
+
+        // 2. Fallback: Round-Robin Cobalt Instances
         for (const instance of COBALT_INSTANCES) {
             try {
-                console.log(`Trying Cobalt instance: ${instance}`);
+                console.log(`Trying Fallback Cobalt: ${instance}`);
                 const res = await fetch(`${instance}/api/json`, {
                     method: "POST",
                     headers: {
@@ -61,7 +87,7 @@ export default function YoutubeDownloader() {
             }
         }
 
-        throw new Error(lastError || "Semua server sedang sibuk. Coba lagi nanti.");
+        throw new Error(lastError || "Semua server sibuk. Mohon coba lagi nanti.");
     };
 
     // Main Fetch Function
@@ -77,7 +103,7 @@ export default function YoutubeDownloader() {
 
         try {
             // Direct Client-Side Call
-            const result = await fetchDirectFromCobalt(url, type, quality);
+            const result = await fetchVideoData(url, type, quality);
             setData(result);
         } catch (err: any) {
             console.error(err);
@@ -97,7 +123,7 @@ export default function YoutubeDownloader() {
         setError("");
 
         try {
-            const result = await fetchDirectFromCobalt(url, type, newQuality);
+            const result = await fetchVideoData(url, type, newQuality);
             setData(result);
         } catch (err: any) {
             setError(err.message);
