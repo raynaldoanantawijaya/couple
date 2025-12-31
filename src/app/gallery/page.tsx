@@ -194,12 +194,14 @@ export default function GalleryPage() {
                                         <button
                                             onClick={(e) => toggleFavorite(item.public_id, e)}
                                             className={`w-10 h-10 grid place-items-center rounded-full transition-colors p-0 ${favorites.has(item.public_id) ? "bg-white/90 text-red-500 shadow-sm" : "bg-black/30 backdrop-blur-sm text-white hover:text-red-500"}`}
+                                            title="Favorit"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1" } : {}}>favorite</span>
                                         </button>
                                         <div
                                             onClick={(e) => handleDelete(item.public_id, e)}
                                             className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0"
+                                            title="Hapus"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none">delete</span>
                                         </div>

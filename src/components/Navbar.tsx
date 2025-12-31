@@ -9,6 +9,7 @@ export default function Navbar() {
     const pathname = usePathname();
     const router = useRouter();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -72,6 +73,16 @@ export default function Navbar() {
         { name: "Visi Misi", href: "/visi-misi" },
         { name: "Tabungan", href: "/tabungan" },
         { name: "Project", href: "/project" },
+        {
+            name: "Alat",
+            href: "#",
+            children: [
+                { name: "Hapus Background", href: "/tools/remove-bg", icon: "auto_fix_high" },
+                { name: "Youtube Downloader", href: "/tools/youtube-downloader", icon: "smart_display" },
+                { name: "Info Gempa", href: "/tools/disaster-detector", icon: "tsunami" },
+                { name: "Market Monitor", href: "/tools/investment", icon: "show_chart" }
+            ]
+        },
     ];
 
     const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
@@ -536,36 +547,80 @@ export default function Navbar() {
 
                     <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                         <nav className="flex items-center gap-8 lg:gap-12 bg-surface-light/50 dark:bg-background-dark/50 px-6 py-2 rounded-full backdrop-blur-sm border border-slate-200/50 dark:border-white/5">
-                            {navItems.map((item) => (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={clsx(
-                                        "text-sm leading-normal transition-all duration-300",
-                                        pathname === item.href
-                                            ? "font-bold text-primary scale-105"
-                                            : "font-medium text-slate-600 dark:text-slate-300 hover:text-primary hover:scale-105"
-                                    )}
-                                >
-                                    {item.name}
-                                </Link>
-                            ))}
+
+                            {
+                                navItems.map((item) => (
+                                    item.children ? (
+                                        <div key={item.name} className="relative">
+                                            <button
+                                                onClick={() => {
+                                                    setActiveMenu(activeMenu === item.name ? null : item.name);
+                                                }}
+                                                className={clsx(
+                                                    "flex items-center gap-1 text-sm leading-normal transition-all duration-300 font-medium",
+                                                    activeMenu === item.name
+                                                        ? "text-primary scale-105"
+                                                        : "text-slate-600 dark:text-slate-300 hover:text-primary hover:scale-105"
+                                                )}
+                                            >
+                                                {item.name}
+                                                <span className={clsx(
+                                                    "material-symbols-outlined text-[18px] transition-transform duration-200",
+                                                    activeMenu === item.name ? "rotate-180" : ""
+                                                )}>expand_more</span>
+                                            </button>
+                                            <div className={clsx(
+                                                "absolute top-full right-0 pt-2 w-48 transition-all duration-200 transform origin-top-right",
+                                                activeMenu === item.name
+                                                    ? "opacity-100 visible translate-y-0"
+                                                    : "opacity-0 invisible -translate-y-2 pointer-events-none"
+                                            )}>
+                                                <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl border border-slate-100 dark:border-white/10 overflow-hidden p-1">
+                                                    {item.children.map((child) => (
+                                                        <Link
+                                                            key={child.href}
+                                                            href={child.href}
+                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary rounded-lg transition-colors"
+                                                            onClick={() => setActiveMenu(null)}
+                                                        >
+                                                            <span className="material-symbols-outlined text-[18px]">{child.icon}</span>
+                                                            {child.name}
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            className={clsx(
+                                                "text-sm leading-normal transition-all duration-300",
+                                                pathname === item.href
+                                                    ? "font-bold text-primary scale-105"
+                                                    : "font-medium text-slate-600 dark:text-slate-300 hover:text-primary hover:scale-105"
+                                            )}
+                                        >
+                                            {item.name}
+                                        </Link>
+                                    )
+                                ))
+                            }
+
                         </nav>
                     </div>
 
                     <div className="flex items-center gap-4 z-10">
                         {/* Upload Buttons based on Path */}
                         {pathname === "/gallery" && (
-                            <label className="flex items-center justify-center gap-2 rounded-lg h-9 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20 cursor-pointer active:scale-95">
+                            <label className="flex items-center justify-center rounded-lg w-9 h-9 bg-primary hover:bg-primary/90 text-white transition-all shadow-lg shadow-primary/20 cursor-pointer active:scale-95" title="Upload Foto">
                                 <span className="material-symbols-outlined text-[20px]">add_a_photo</span>
-                                <span className="hidden sm:inline">Upload Foto</span>
                                 <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={(e) => onFileSelect(e, 'image')} />
                             </label>
                         )}
                         {pathname === "/video" && (
-                            <label className="flex items-center justify-center gap-2 rounded-lg h-9 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20 cursor-pointer active:scale-95">
+                            <label className="flex items-center justify-center rounded-lg w-9 h-9 bg-primary hover:bg-primary/90 text-white transition-all shadow-lg shadow-primary/20 cursor-pointer active:scale-95" title="Upload Vidio">
                                 <span className="material-symbols-outlined text-[20px]">video_call</span>
-                                <span className="hidden sm:inline">Upload Vidio</span>
                                 <input type="file" accept="video/*" className="hidden" ref={videoInputRef} onChange={(e) => onFileSelect(e, 'video')} />
                             </label>
                         )}
@@ -583,26 +638,31 @@ export default function Navbar() {
                             <span className="material-symbols-outlined">menu</span>
                         </button>
                     </div>
-                </div>
-            </header>
+                </div >
+            </header >
 
             {/* Mobile Menu Drawer - Moved Outside Header */}
-            <div className={clsx(
-                "fixed inset-0 z-[100] md:hidden transition-all duration-300",
-                isMenuOpen ? "visible pointer-events-auto" : "invisible pointer-events-none"
-            )}>
+            < div className={
+                clsx(
+                    "fixed inset-0 z-[100] md:hidden transition-all duration-300",
+                    isMenuOpen ? "visible pointer-events-auto" : "invisible pointer-events-none"
+                )
+            } >
                 {/* Backdrop */}
-                <div
-                    className={clsx(
-                        "absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300",
-                        isMenuOpen ? "opacity-100" : "opacity-0"
-                    )}
-                    onClick={() => setIsMenuOpen(false)}
+                < div
+                    className={
+                        clsx(
+                            "absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300",
+                            isMenuOpen ? "opacity-100" : "opacity-0"
+                        )
+                    }
+                    onClick={() => setIsMenuOpen(false)
+                    }
                 />
 
                 {/* Drawer */}
                 <div className={clsx(
-                    "absolute top-0 right-0 bottom-0 w-[280px] md:w-[320px] !bg-white dark:!bg-zinc-950 border-l border-gray-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-6 transition-transform duration-300 ease-out z-[110]",
+                    "absolute top-0 right-0 bottom-0 w-[280px] md:w-[320px] !bg-white dark:!bg-zinc-950 border-l border-gray-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-6 transition-transform duration-300 ease-out z-[110] overflow-y-auto",
                     "text-slate-900 dark:text-white", // Default text color
                     isMenuOpen ? "translate-x-0" : "translate-x-full"
                 )}>
@@ -610,7 +670,7 @@ export default function Navbar() {
                         <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Menu</h3>
                         <button
                             onClick={() => setIsMenuOpen(false)}
-                            className="p-2 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-white"
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
                         >
                             <span className="material-symbols-outlined">close</span>
                         </button>
@@ -618,19 +678,61 @@ export default function Navbar() {
 
                     <div className="flex flex-col gap-2">
                         {navItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={clsx(
-                                    "px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200",
-                                    pathname === item.href
-                                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/30"
-                                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:bg-slate-200 dark:active:bg-white/10"
-                                )}
-                                onClick={() => setIsMenuOpen(false)}
-                            >
-                                {item.name}
-                            </Link>
+                            item.children ? (
+                                <div key={item.name} className="flex flex-col gap-1">
+                                    <button
+                                        onClick={() => setActiveMenu(activeMenu === item.name ? null : item.name)}
+                                        className={clsx(
+                                            "flex items-center justify-between px-4 py-3 rounded-xl text-base font-bold transition-all duration-200",
+                                            activeMenu === item.name
+                                                ? "bg-slate-100 dark:bg-white/10 text-primary"
+                                                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
+                                        )}
+                                    >
+                                        <span className="uppercase tracking-wider text-xs">{item.name}</span>
+                                        <span className={clsx(
+                                            "material-symbols-outlined text-[20px] transition-transform duration-200",
+                                            activeMenu === item.name ? "rotate-180" : ""
+                                        )}>expand_more</span>
+                                    </button>
+
+                                    <div className={clsx(
+                                        "flex flex-col gap-1 pl-4 overflow-hidden transition-all duration-300 ease-in-out",
+                                        activeMenu === item.name ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
+                                    )}>
+                                        {item.children.map((child) => (
+                                            <Link
+                                                key={child.href}
+                                                href={child.href}
+                                                className={clsx(
+                                                    "flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200",
+                                                    pathname === child.href
+                                                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/30"
+                                                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5"
+                                                )}
+                                                onClick={() => setIsMenuOpen(false)}
+                                            >
+                                                <span className="material-symbols-outlined text-[20px]">{child.icon}</span>
+                                                {child.name}
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={clsx(
+                                        "px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200",
+                                        pathname === item.href
+                                            ? "bg-primary text-white font-bold shadow-lg shadow-primary/30"
+                                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:bg-slate-200 dark:active:bg-white/10"
+                                    )}
+                                    onClick={() => setIsMenuOpen(false)}
+                                >
+                                    {item.name}
+                                </Link>
+                            )
                         ))}
                     </div>
 
@@ -644,7 +746,7 @@ export default function Navbar() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </div >
         </>
     );
 }

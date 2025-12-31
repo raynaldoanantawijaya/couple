@@ -48,7 +48,7 @@ interface SavingsGoal {
 
 export default function BerandaPage() {
     const [visi, setVisi] = useState("");
-    const [misi, setMisi] = useState("");
+    const [misi, setMisi] = useState<string[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [savingsTransactions, setSavingsTransactions] = useState<Transaction[]>([]);
     const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
@@ -59,23 +59,7 @@ export default function BerandaPage() {
     const generateSummary = (text: string, isListMode: boolean = false) => {
         if (!text) return "";
         let clean = text.replace(/\*/g, "");
-        if (isListMode) {
-            const lines = clean.split('\n');
-            const validLines: string[] = [];
-            for (const line of lines) {
-                let processed = line.trim();
-                if (!processed) continue;
-                const lower = processed.toLowerCase();
-                if (lower.startsWith("kegiatan") || processed.startsWith("-") || processed.match(/^\d+\./)) continue;
-                const kegiatanIndex = lower.indexOf("kegiatan");
-                if (kegiatanIndex !== -1) processed = processed.substring(0, kegiatanIndex);
-                processed = processed.replace(/^(KESATU|KEDUA|KETIGA|KEEMPAT|KELIMA|KEENAM|KETUJUH|KEDELAPAN|KESEMBILAN|KESEPULUH)(\s*[:.])?/i, "").trim();
-                if (processed.length > 3) validLines.push(processed);
-            }
-            const summary = validLines.join(". ");
-            if (summary.length <= 400) return summary;
-            return summary.substring(0, 400) + "...";
-        }
+        if (isListMode) return clean; // Fallback only
         clean = clean.replace(/\s+/g, " ").trim();
         if (clean.length <= 250) return clean;
         return clean.substring(0, 250) + "...";
@@ -89,12 +73,16 @@ export default function BerandaPage() {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const visiData = data.visi || "";
-                    const misiData = data.misi || "";
+                    const misiData = data.misi || []; // Default to empty array
                     setVisi(Array.isArray(visiData) ? visiData.join(". ") : visiData);
-                    setMisi(Array.isArray(misiData) ? misiData.join(". ") : misiData);
+                    setMisi(Array.isArray(misiData) ? misiData : [misiData].filter(Boolean));
                 } else {
                     setVisi("Membangun hubungan yang bertumbuh...");
-                    setMisi("Saling mendukung, berkomunikasi dengan baik...");
+                    setMisi([
+                        "Saling mendukung karir dan impian masing-masing.",
+                        "Meluangkan quality time minimal seminggu sekali.",
+                        "Terbuka dalam komunikasi dan keuangan."
+                    ]);
                 }
             } catch (e) { console.error("Error fetching visi", e); }
         };
@@ -213,8 +201,24 @@ export default function BerandaPage() {
                                     </div>
                                     <div className="w-full h-px bg-slate-100 dark:bg-white/5"></div>
                                     <div>
-                                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Misi</p>
-                                        <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{generateSummary(misi || "Belum ada misi yang ditulis.", true)}</p>
+                                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Misi</p>
+                                        {Array.isArray(misi) && misi.length > 0 ? (
+                                            <ul className="space-y-2">
+                                                {misi.slice(0, 3).map((item, idx) => (
+                                                    <li key={idx} className="flex items-start gap-2 text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                                                        <span className="mt-1.5 size-1.5 rounded-full bg-primary flex-shrink-0"></span>
+                                                        <span className="line-clamp-2">{item}</span>
+                                                    </li>
+                                                ))}
+                                                {misi.length > 3 && (
+                                                    <li className="text-xs text-primary font-bold pt-1">
+                                                        +{misi.length - 3} poin lainnya...
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">Belum ada misi yang ditulis.</p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 mt-4 absolute bottom-6 right-6 opacity-30 group-hover:opacity-100 transition-opacity">
