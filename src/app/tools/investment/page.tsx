@@ -256,12 +256,12 @@ export default function InvestmentPage() {
                 <div className="max-w-7xl w-full space-y-8">
 
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-end border-b border-rose-500/20 pb-6 gap-4 animate-in fade-in slide-in-from-top-4 duration-700">
-                        <div>
+                    <div className="flex flex-col md:flex-row justify-between items-center md:items-end border-b border-rose-500/20 pb-6 gap-4 animate-in fade-in slide-in-from-top-4 duration-700">
+                        <div className="text-center md:text-left">
                             <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200">
                                 Market <span className="text-rose-500">Monitor</span>
                             </h1>
-                            <p className="text-slate-400 mt-2">Real-time data: Saham IDX, Emas & Crypto.</p>
+                            <p className="text-slate-400 mt-2 text-center md:text-left">Real-time data: Saham IDX, Emas & Crypto.</p>
                         </div>
                         {data && (
                             <div className="flex items-center gap-2 text-xs text-slate-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
@@ -313,8 +313,8 @@ export default function InvestmentPage() {
 
                                     <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
                                         {/* Sort Buttons - Scrollable on mobile */}
-                                        <div className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
-                                            <div className="flex bg-black/20 p-1.5 rounded-xl border border-white/5 min-w-max">
+                                        <div className="w-fit max-w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+                                            <div className="flex bg-black/20 p-1.5 rounded-xl border border-white/5 min-w-max md:mx-0">
                                                 <button
                                                     onClick={() => setSortBy('gainers')}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sortBy === 'gainers' ? 'bg-green-500/20 text-green-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
