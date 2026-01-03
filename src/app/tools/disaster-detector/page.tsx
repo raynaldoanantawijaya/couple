@@ -89,28 +89,53 @@ export default function DisasterDetectorPage() {
         setLocStatus('loading');
         setLocError("");
         setClosestGempa(null);
-        setUserAddress("");
+        setUserAddress(""); // Clear previous address
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
-                setUserLoc({ lat: latitude, lng: longitude });
 
-                try {
+                // 1. Calculate Distance & Show Result IMMEDIATELY
+                // We update state here first so the user gets "Fast" feedback
+                if (data) {
                     try {
-                        // 1. Reverse Geocoding (Nominatim OpenStreetMap)
-                        let addrData = null;
-                        try {
-                            const addrRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`, {
-                                headers: { 'User-Agent': 'OurSpaceDisasterDetector/1.0' }
-                            });
-                            if (addrRes.ok) {
-                                addrData = await addrRes.json();
-                            }
-                        } catch (fetchErr) {
-                            console.warn("Nominatim fetch failed, using coords fallback", fetchErr);
-                        }
+                        const allGempa = [
+                            data.autogempa,
+                            ...data.gempaterkini,
+                            ...data.gempadirasakan
+                        ];
 
+                        const gempaWithDist = allGempa.map(g => {
+                            const [gLat, gLng] = g.Coordinates.split(',').map(parseFloat);
+                            return {
+                                ...g,
+                                distance: calculateDistance(latitude, longitude, gLat, gLng)
+                            };
+                        });
+
+                        gempaWithDist.sort((a, b) => a.distance - b.distance);
+                        const nearest = gempaWithDist[0];
+
+                        setClosestGempa(nearest);
+                        setDistance(nearest.distance);
+                        setUserLoc({ lat: latitude, lng: longitude });
+                        setLocStatus('success'); // UNBLOCK UI HERE
+                    } catch (e) {
+                        console.error("Calculation Error:", e);
+                        setLocError("Gagal menghitung jarak gempa.");
+                        setLocStatus('error');
+                        return;
+                    }
+                }
+
+                // 2. Resolve Address in Background (Async)
+                try {
+                    const addrRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`, {
+                        headers: { 'User-Agent': 'OurSpaceDisasterDetector/1.0' }
+                    });
+
+                    if (addrRes.ok) {
+                        const addrData = await addrRes.json();
                         if (addrData && (addrData.address || addrData.display_name)) {
                             const parts = addrData.address || {};
                             const locName = [
@@ -121,49 +146,28 @@ export default function DisasterDetectorPage() {
                         } else {
                             setUserAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
                         }
-                    } catch (e) {
-                        console.error("Geocoding Logic Error:", e);
+                    } else {
+                        // Silent fail to coords
                         setUserAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
                     }
-
-                    // 2. Find Nearest Earthquake Logic
-                    if (data) {
-                        const allGempa = [
-                            data.autogempa,
-                            ...data.gempaterkini,
-                            ...data.gempadirasakan
-                        ];
-
-                        // Calculate distance for ALL available quake data
-                        const gempaWithDist = allGempa.map(g => {
-                            const [gLat, gLng] = g.Coordinates.split(',').map(parseFloat);
-                            return {
-                                ...g,
-                                distance: calculateDistance(latitude, longitude, gLat, gLng)
-                            };
-                        });
-
-                        // Sort by distance ascending (closest first)
-                        gempaWithDist.sort((a, b) => a.distance - b.distance);
-
-                        // Pick the winner
-                        const nearest = gempaWithDist[0];
-                        setClosestGempa(nearest);
-                        setDistance(nearest.distance);
-                        setLocStatus('success');
-                    }
-
-                } catch (e: any) {
-                    console.error("Location Logic Error:", e);
-                    // Fallback if Geocoding fails but we have coords
-                    setLocStatus('success');
-                    setLocError("Gagal mendapatkan nama lokasi, menggunakan koordinat.");
+                } catch (fetchErr) {
+                    console.warn("Nominatim fetch failed", fetchErr);
+                    setUserAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
                 }
             },
             (err) => {
                 setLocStatus('error');
-                setLocError("Gagal mengambil lokasi. Pastikan GPS aktif.");
+                let msg = "Gagal mengambil lokasi.";
+                if (err.code === 1) msg = "Izin lokasi ditolak. Mohon izinkan akses lokasi di browser.";
+                else if (err.code === 2) msg = "Sinyal GPS tidak tersedia.";
+                else if (err.code === 3) msg = "Waktu permintaan habis (Timeout). Coba lagi.";
+                setLocError(msg);
                 console.error(err);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
             }
         );
     };
