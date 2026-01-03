@@ -77,6 +77,8 @@ export default function Navbar() {
             name: "Alat",
             href: "#",
             children: [
+                { name: "AI Foto Generator", href: "/tools/ai-photo", icon: "add_a_photo" },
+                { name: "Upscale Image", href: "/tools/image-upscaler", icon: "hd" },
                 { name: "Hapus Background", href: "/tools/remove-bg", icon: "auto_fix_high" },
                 { name: "Youtube Downloader", href: "/tools/youtube-downloader", icon: "smart_display" },
                 { name: "Info Gempa", href: "/tools/disaster-detector", icon: "tsunami" },

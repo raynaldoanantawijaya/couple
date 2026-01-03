@@ -193,7 +193,7 @@ export default function VideoPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 pointer-events-none">
                                         <span className="text-primary text-xs font-bold uppercase tracking-wider mb-1">{item.tag}</span>
                                         <h3 className="text-white font-bold text-lg leading-tight">{item.title}</h3>
                                         <div className="flex items-center gap-1 text-gray-300 text-xs mt-2">
@@ -204,19 +204,21 @@ export default function VideoPage() {
                                             <span>{item.duration}</span>
                                         </div>
                                     </div>
-                                    <div className="absolute top-3 right-3 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
+                                    <div className="absolute top-3 right-3 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 z-30">
                                         <button
-                                            onClick={(e) => toggleFavorite(item.public_id, e)}
-                                            className={`w-10 h-10 grid place-items-center rounded-full transition-colors p-0 ${favorites.has(item.public_id) ? "bg-white/90 text-red-500 shadow-sm" : "bg-black/30 backdrop-blur-sm text-white hover:text-red-500"}`}
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); toggleFavorite(item.public_id, e); }}
+                                            className="w-10 h-10 grid place-items-center rounded-full transition-colors p-0 bg-black/30 backdrop-blur-sm text-white hover:text-red-500 shadow-sm cursor-pointer border-none outline-none"
                                         >
-                                            <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1" } : {}}>favorite</span>
+                                            <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1", color: '#ef4444' } : {}}>favorite</span>
                                         </button>
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(idx, item); }}
-                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0"
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(idx, item); }}
+                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0 border-none outline-none"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none">delete</span>
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
                             ))}
