@@ -293,14 +293,14 @@ export default function InvestmentPage() {
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
 
                                 {/* Market Header + Sort Filter + Search */}
-                                <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
+                                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
                                     <div className="flex items-center gap-4 w-full md:w-auto">
-                                        <div className="w-12 h-12 flex items-center justify-center bg-rose-500/20 rounded-xl text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
+                                        <div className="w-12 h-12 flex items-center justify-center bg-rose-500/20 rounded-xl text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.2)] shrink-0">
                                             <span className="material-symbols-outlined">table_chart</span>
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-bold text-white leading-tight">Pasar Saham (IDX)</h3>
-                                            <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                                            <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
                                                 <span>{totalItems} Emiten</span>
                                                 <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
                                                 <span className="flex items-center gap-1">
@@ -312,33 +312,35 @@ export default function InvestmentPage() {
                                     </div>
 
                                     <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
-                                        {/* Sort Buttons */}
-                                        <div className="flex bg-black/20 p-1.5 rounded-xl border border-white/5">
-                                            <button
-                                                onClick={() => setSortBy('gainers')}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sortBy === 'gainers' ? 'bg-green-500/20 text-green-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                            >
-                                                Top Gainers
-                                            </button>
-                                            <button
-                                                onClick={() => setSortBy('losers')}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sortBy === 'losers' ? 'bg-red-500/20 text-red-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                            >
-                                                Top Losers
-                                            </button>
-                                            <button
-                                                onClick={() => setSortBy('price_desc')}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sortBy === 'price_desc' ? 'bg-yellow-500/20 text-yellow-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                                title="Urutkan berdasarkan Harga Tertinggi"
-                                            >
-                                                Highest Price
-                                            </button>
-                                            <button
-                                                onClick={() => setSortBy('az')}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sortBy === 'az' ? 'bg-blue-500/20 text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                            >
-                                                A-Z
-                                            </button>
+                                        {/* Sort Buttons - Scrollable on mobile */}
+                                        <div className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+                                            <div className="flex bg-black/20 p-1.5 rounded-xl border border-white/5 min-w-max">
+                                                <button
+                                                    onClick={() => setSortBy('gainers')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sortBy === 'gainers' ? 'bg-green-500/20 text-green-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    Top Gainers
+                                                </button>
+                                                <button
+                                                    onClick={() => setSortBy('losers')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sortBy === 'losers' ? 'bg-red-500/20 text-red-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    Top Losers
+                                                </button>
+                                                <button
+                                                    onClick={() => setSortBy('price_desc')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sortBy === 'price_desc' ? 'bg-yellow-500/20 text-yellow-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                    title="Urutkan berdasarkan Harga Tertinggi"
+                                                >
+                                                    Highest Price
+                                                </button>
+                                                <button
+                                                    onClick={() => setSortBy('az')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sortBy === 'az' ? 'bg-blue-500/20 text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    A-Z
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* Search */}
@@ -359,42 +361,42 @@ export default function InvestmentPage() {
                                 <div className="bg-[#0f0f13] border border-white/10 rounded-3xl overflow-hidden shadow-2xl relative">
                                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
+                                        <table className="w-full text-left border-collapse min-w-[600px] md:min-w-0">
                                             <thead>
                                                 <tr className="bg-white/[0.02] text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-white/5">
-                                                    <th className="p-5 text-center w-16">No</th>
-                                                    <th className="p-5">Kode</th>
-                                                    <th className="p-5">Nama Emiten</th>
-                                                    <th className="p-5 text-right">Tertinggi</th>
-                                                    <th className="p-5 text-right">Terendah</th>
-                                                    <th className="p-5 text-right">Penutupan</th>
-                                                    <th className="p-5 text-right">Selisih</th>
+                                                    <th className="p-3 md:p-5 text-center w-12 hidden md:table-cell">No</th>
+                                                    <th className="p-3 md:p-5">Kode</th>
+                                                    <th className="p-3 md:p-5">Nama Emiten</th>
+                                                    <th className="p-3 md:p-5 text-right hidden md:table-cell">Tertinggi</th>
+                                                    <th className="p-3 md:p-5 text-right hidden md:table-cell">Terendah</th>
+                                                    <th className="p-3 md:p-5 text-right">Penutupan</th>
+                                                    <th className="p-3 md:p-5 text-right">Selisih</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5 text-sm">
                                                 {currentStocks.map((stock, index) => (
                                                     <tr key={stock.Code} className="hover:bg-white/[0.03] transition-colors group">
-                                                        <td className="p-5 text-center text-slate-600 group-hover:text-slate-400 font-medium">
+                                                        <td className="p-3 md:p-5 text-center text-slate-600 group-hover:text-slate-400 font-medium hidden md:table-cell">
                                                             {(currentPage - 1) * itemsPerPage + index + 1}
                                                         </td>
-                                                        <td className="p-5">
+                                                        <td className="p-3 md:p-5">
                                                             <div className="font-black text-white tracking-wide">{stock.Code}</div>
                                                         </td>
-                                                        <td className="p-5">
-                                                            <div className="text-slate-400 group-hover:text-slate-200 transition-colors truncate max-w-[240px]" title={stock.Name}>{stock.Name}</div>
+                                                        <td className="p-3 md:p-5">
+                                                            <div className="text-slate-400 group-hover:text-slate-200 transition-colors truncate max-w-[120px] md:max-w-[240px]" title={stock.Name}>{stock.Name}</div>
                                                         </td>
-                                                        <td className="p-5 text-right font-medium text-slate-500 group-hover:text-slate-400">
+                                                        <td className="p-3 md:p-5 text-right font-medium text-slate-500 group-hover:text-slate-400 hidden md:table-cell">
                                                             {formatCurrency(stock.High || 0)}
                                                         </td>
-                                                        <td className="p-5 text-right font-medium text-slate-500 group-hover:text-slate-400">
+                                                        <td className="p-3 md:p-5 text-right font-medium text-slate-500 group-hover:text-slate-400 hidden md:table-cell">
                                                             {formatCurrency(stock.Low || 0)}
                                                         </td>
-                                                        <td className="p-5 text-right">
-                                                            <span className="font-bold text-white bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">{formatCurrency(stock.Last)}</span>
+                                                        <td className="p-3 md:p-5 text-right">
+                                                            <span className="font-bold text-white bg-white/5 px-2 py-1 md:px-2.5 md:py-1 rounded-lg border border-white/5 whitespace-nowrap">{formatCurrency(stock.Last)}</span>
                                                         </td>
-                                                        <td className="p-5 text-right">
+                                                        <td className="p-3 md:p-5 text-right">
                                                             <div className={`flex flex-col items-end gap-0.5 ${(stock.Change || 0) > 0 ? 'text-green-400' : (stock.Change || 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                                                <span className="font-bold text-sm">
+                                                                <span className="font-bold text-xs md:text-sm whitespace-nowrap">
                                                                     {(stock.Change || 0) > 0 ? '+' : ''}{stock.Change}
                                                                 </span>
                                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${(stock.Change || 0) > 0 ? 'bg-green-500/10' : (stock.Change || 0) < 0 ? 'bg-rose-500/10' : 'bg-slate-500/10'}`}>
@@ -406,7 +408,7 @@ export default function InvestmentPage() {
                                                 ))}
                                                 {currentStocks.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={7} className="p-16 text-center text-slate-500">
+                                                        <td colSpan={5} className="p-16 text-center text-slate-500">
                                                             <div className="flex flex-col items-center gap-3">
                                                                 <span className="material-symbols-outlined text-4xl opacity-50">search_off</span>
                                                                 <p>Tidak ada emiten ditemukan.</p>
@@ -422,7 +424,7 @@ export default function InvestmentPage() {
                                 {/* Pagination Controls */}
                                 {totalPages > 1 && (
                                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 px-1">
-                                        <div className="text-sm text-slate-500 font-medium">
+                                        <div className="text-xs md:text-sm text-slate-500 font-medium text-center md:text-left">
                                             Menampilkan <span className="text-white font-bold">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)}</span> dari <span className="text-white font-bold">{totalItems}</span> data
                                         </div>
 
@@ -444,7 +446,7 @@ export default function InvestmentPage() {
                                                 <span className="material-symbols-outlined text-lg">chevron_left</span>
                                             </button>
 
-                                            <div className="px-4 py-1.5 rounded-xl bg-white/10 border border-white/5 text-white font-bold text-xs min-w-[80px] text-center">
+                                            <div className="px-3 md:px-4 py-1.5 rounded-xl bg-white/10 border border-white/5 text-white font-bold text-xs min-w-[70px] md:min-w-[80px] text-center">
                                                 Page {currentPage} / {totalPages}
                                             </div>
 
