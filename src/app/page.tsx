@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [raindrops, setRaindrops] = useState<{ left: string, duration: string, delay: string, fontSize: string }[]>([]);
+
+  useEffect(() => {
+    setRaindrops([...Array(20)].map(() => ({
+      left: `${Math.random() * 100}%`,
+      duration: `${5 + Math.random() * 10}s`,
+      delay: `${Math.random() * 5}s`,
+      fontSize: `${10 + Math.random() * 20}px`
+    })));
+  }, []);
+
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -41,15 +52,15 @@ export default function LoginPage() {
 
       {/* Love Rain Animation */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        {[...Array(20)].map((_, i) => (
+        {raindrops.map((drop, i) => (
           <div
             key={i}
             className="absolute -top-10 animate-fall text-rose-500/20"
             style={{
-              left: `${Math.random() * 100}%`,
-              animationDuration: `${5 + Math.random() * 10}s`,
-              animationDelay: `${Math.random() * 5}s`,
-              fontSize: `${10 + Math.random() * 20}px`,
+              left: drop.left,
+              animationDuration: drop.duration,
+              animationDelay: drop.delay,
+              fontSize: drop.fontSize,
             }}
           >
             <span className="material-symbols-outlined">favorite</span>
