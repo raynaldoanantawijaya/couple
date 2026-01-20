@@ -392,67 +392,67 @@ export default function InvestmentPage() {
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col">
-            <main className="flex-1 flex flex-col items-center py-8 px-4 md:px-8">
-                <div className="max-w-7xl w-full space-y-8">
+            <main className="flex-1 flex flex-col items-center py-4 px-3 md:py-8 md:px-8">
+                <div className="max-w-7xl w-full space-y-6 md:space-y-8">
 
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-center md:items-end border-b border-rose-500/20 pb-6 gap-4">
+                    <div className="flex flex-col md:flex-row justify-between items-center md:items-end border-b border-rose-500/20 pb-4 md:pb-6 gap-3 md:gap-4">
                         <div className="text-center md:text-left">
-                            <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200">
+                            <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200">
                                 Market <span className="text-rose-500">Monitor</span>
                             </h1>
-                            <p className="text-slate-400 mt-2">Real-time Data: IDX, US Stocks, Gold & Crypto.</p>
+                            <p className="text-slate-400 text-xs md:text-base mt-1 md:mt-2">Real-time Data: IDX, US Stocks, Gold & Crypto.</p>
                         </div>
                         {(!loading && (goldData || idxData)) && (
-                            <div className="flex items-center gap-2 text-xs text-slate-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
-                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            <div className="flex items-center gap-2 text-[10px] md:text-xs text-slate-500 bg-white/5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full border border-white/5">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse"></span>
                                 Live APIs Connected
                             </div>
                         )}
                     </div>
 
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-32 gap-4">
-                            <div className="w-12 h-12 border-4 border-rose-500/30 border-t-rose-500 rounded-full animate-spin"></div>
-                            <p className="text-slate-400 animate-pulse font-medium">Fetching Market Data...</p>
+                        <div className="flex flex-col items-center justify-center py-20 md:py-32 gap-4">
+                            <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-rose-500/30 border-t-rose-500 rounded-full animate-spin"></div>
+                            <p className="text-slate-400 text-sm md:text-base animate-pulse font-medium">Fetching Market Data...</p>
                         </div>
                     ) : (
                         <>
                             {/* TOP SECTION */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                                 <GoldCard />
                                 <CryptoCard />
                             </div>
 
                             {/* STOCKS SECTION */}
-                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                            <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
 
                                 {/* CONTROLS */}
-                                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
+                                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 md:gap-4 bg-white/5 p-3 md:p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
 
                                     {/* Tabs */}
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex p-1 bg-black/40 rounded-xl border border-white/5">
+                                    <div className="flex flex-col md:flex-row items-start md:items-center gap-3 w-full md:w-auto">
+                                        <div className="flex w-full md:w-auto p-1 bg-black/40 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
                                             <button
                                                 onClick={() => setActiveTab('IDX')}
-                                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'IDX' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                                className={`flex-1 md:flex-none px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'IDX' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                                             >
-                                                <span className="material-symbols-outlined text-lg">flag</span>
-                                                IDX Indonesia
+                                                <span className="material-symbols-outlined text-base md:text-lg">flag</span>
+                                                IDX
                                             </button>
                                             <button
                                                 onClick={() => setActiveTab('US')}
-                                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'US' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                                className={`flex-1 md:flex-none px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'US' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                                             >
-                                                <span className="material-symbols-outlined text-lg">public</span>
-                                                US Stocks
+                                                <span className="material-symbols-outlined text-base md:text-lg">public</span>
+                                                US
                                             </button>
                                             <button
                                                 onClick={() => setActiveTab('CRYPTO')}
-                                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'CRYPTO' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                                className={`flex-1 md:flex-none px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'CRYPTO' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                                             >
-                                                <span className="material-symbols-outlined text-lg">currency_bitcoin</span>
-                                                Crypto Assets
+                                                <span className="material-symbols-outlined text-base md:text-lg">currency_bitcoin</span>
+                                                Crypto
                                             </button>
                                         </div>
 
@@ -470,17 +470,17 @@ export default function InvestmentPage() {
 
                                     {/* Sort & Search */}
                                     <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
-                                        <div className="flex bg-black/20 p-1.5 rounded-xl border border-white/5 w-full md:w-auto overflow-x-auto no-scrollbar">
+                                        <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 w-full md:w-auto overflow-x-auto no-scrollbar">
                                             {[
-                                                { id: 'gainers', label: 'Top Gainers', color: 'green' },
-                                                { id: 'losers', label: 'Top Losers', color: 'red' },
-                                                { id: 'price_desc', label: 'Highest Price', color: 'yellow' },
+                                                { id: 'gainers', label: 'Gainers', color: 'green' },
+                                                { id: 'losers', label: 'Losers', color: 'red' },
+                                                { id: 'price_desc', label: 'Price', color: 'yellow' },
                                                 { id: 'az', label: 'A-Z', color: 'blue' }
                                             ].map(opt => (
                                                 <button
                                                     key={opt.id}
                                                     onClick={() => setSortBy(opt.id as any)}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${sortBy === opt.id ? `bg-${opt.color}-500/20 text-${opt.color}-400` : 'text-slate-500 hover:text-slate-300'}`}
+                                                    className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap transition-all ${sortBy === opt.id ? `bg-${opt.color}-500/20 text-${opt.color}-400` : 'text-slate-500 hover:text-slate-300'}`}
                                                 >
                                                     {opt.label}
                                                 </button>
@@ -488,11 +488,11 @@ export default function InvestmentPage() {
                                         </div>
 
                                         <div className="relative w-full md:w-64">
-                                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg">search</span>
+                                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-base md:text-lg">search</span>
                                             <input
                                                 type="text"
-                                                placeholder={`Cari ${activeTab === 'IDX' ? 'BBCA' : 'NVDA'}...`}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-white focus:outline-none focus:border-rose-500/50 transition-colors placeholder:text-slate-600 text-sm"
+                                                placeholder={`Cari ${activeTab === 'IDX' ? 'BBCA' : activeTab === 'CRYPTO' ? 'BTC' : 'NVDA'}...`}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl py-1.5 md:py-2 pl-9 md:pl-10 pr-4 text-white focus:outline-none focus:border-rose-500/50 transition-colors placeholder:text-slate-600 text-xs md:text-sm"
                                                 value={search}
                                                 onChange={(e) => setSearch(e.target.value)}
                                             />
@@ -501,52 +501,56 @@ export default function InvestmentPage() {
                                 </div>
 
                                 {/* TABLE */}
-                                <div className="bg-[#0f0f13] border border-white/10 rounded-3xl overflow-hidden shadow-2xl relative min-h-[400px]">
+                                <div className="bg-[#0f0f13] border border-white/10 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl relative min-h-[400px]">
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse min-w-[600px]">
+                                        <table className="w-full text-left border-collapse min-w-[350px] md:min-w-[600px]">
                                             <thead>
-                                                <tr className="bg-white/[0.02] text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-white/5">
-                                                    <th className="p-4 w-12 text-center">No</th>
-                                                    <th className="p-4">Symbol</th>
-                                                    <th className="p-4">{activeTab === 'CRYPTO' ? 'Global Pair' : 'Reference Name'}</th>
-                                                    <th className="p-4 text-right">Price</th>
-                                                    <th className="p-4 text-right">Change</th>
-                                                    <th className="p-4 text-right">
+                                                <tr className="bg-white/[0.02] text-slate-400 text-[10px] md:text-[11px] font-bold uppercase tracking-wider border-b border-white/5">
+                                                    <th className="p-2 md:p-4 w-8 md:w-12 text-center text-[9px] md:text-[11px]">No</th>
+                                                    <th className="p-2 md:p-4">Symbol</th>
+                                                    <th className="hidden sm:table-cell p-2 md:p-4">{activeTab === 'CRYPTO' ? 'Global Pair' : 'Reference Name'}</th>
+                                                    <th className="p-2 md:p-4 text-right">Price</th>
+                                                    <th className="p-2 md:p-4 text-right">Change</th>
+                                                    <th className="hidden sm:table-cell p-2 md:p-4 text-right">
                                                         {activeTab === 'IDX' ? 'Range (H/L)' :
                                                             activeTab === 'CRYPTO' ? 'Range & Vol' : 'Market Cap'}
                                                     </th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-white/5 text-sm">
+                                            <tbody className="divide-y divide-white/5 text-[10px] md:text-sm">
                                                 {currentItems.map((item, index) => (
                                                     <tr key={`${item.symbol}-${index}`} className="hover:bg-white/[0.03] transition-colors group">
-                                                        <td className="p-4 text-center text-slate-600">
+                                                        <td className="p-2 md:p-4 text-center text-slate-600">
                                                             {(currentPage - 1) * itemsPerPage + index + 1}
                                                         </td>
-                                                        <td className="p-4">
-                                                            <div className="font-black text-white tracking-wide">{item.symbol}</div>
+                                                        <td className="p-2 md:p-4">
+                                                            <div className="font-black text-white tracking-wide text-xs md:text-sm">{item.symbol}</div>
+                                                            {/* Mobile Only Sub-label */}
+                                                            <div className="sm:hidden text-[9px] text-slate-500 truncate max-w-[80px]" title={item.name || item.pair}>
+                                                                {activeTab === 'CRYPTO' ? item.pair?.toUpperCase() : item.name}
+                                                            </div>
                                                         </td>
-                                                        <td className="p-4">
+                                                        <td className="hidden sm:table-cell p-2 md:p-4">
                                                             <div className="text-slate-400 truncate max-w-[200px]" title={item.name || item.pair}>
                                                                 {activeTab === 'CRYPTO' ? item.pair?.toUpperCase() : item.name}
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 text-right">
-                                                            <span className="font-bold text-white bg-white/5 px-2 py-1 rounded-lg border border-white/5">
+                                                        <td className="p-2 md:p-4 text-right">
+                                                            <span className="font-bold text-white bg-white/5 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg border border-white/5 whitespace-nowrap">
                                                                 {formatCurrency(item.price, activeTab === 'US' ? 'USD' : 'IDR')}
                                                             </span>
                                                         </td>
-                                                        <td className="p-4 text-right">
+                                                        <td className="p-2 md:p-4 text-right">
                                                             <div className={`flex flex-col items-end gap-0.5 ${(item.changePct || 0) >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
-                                                                <span className="font-bold text-xs whitespace-nowrap">
+                                                                <span className="font-bold text-[10px] md:text-xs whitespace-nowrap">
                                                                     {(item.change || 0) >= 0 ? '+' : ''}{(item.change || 0).toLocaleString()}
                                                                 </span>
-                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${(item.changePct || 0) >= 0 ? 'bg-green-500/10' : 'bg-rose-500/10'}`}>
+                                                                <span className={`text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md ${(item.changePct || 0) >= 0 ? 'bg-green-500/10' : 'bg-rose-500/10'}`}>
                                                                     {(item.changePct || 0) >= 0 ? '+' : ''}{(item.changePct || 0).toFixed(2)}%
                                                                 </span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 text-right text-slate-500 font-medium text-xs">
+                                                        <td className="hidden sm:table-cell p-2 md:p-4 text-right text-slate-500 font-medium text-xs">
                                                             {activeTab === 'IDX' ? (
                                                                 <div className="flex flex-col items-end">
                                                                     <span>H: {item.high}</span>
@@ -566,10 +570,10 @@ export default function InvestmentPage() {
                                                 ))}
                                                 {currentItems.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={6} className="p-16 text-center text-slate-500">
+                                                        <td colSpan={6} className="p-8 md:p-16 text-center text-slate-500">
                                                             <div className="flex flex-col items-center gap-3">
                                                                 <span className="material-symbols-outlined text-4xl opacity-50">search_off</span>
-                                                                <p>No assets found.</p>
+                                                                <p className="text-xs md:text-sm">No assets found.</p>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -581,44 +585,45 @@ export default function InvestmentPage() {
 
                                 {/* PAGINATION */}
                                 {totalPages > 1 && (
-                                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 px-1">
-                                        <div className="text-xs text-slate-500">
-                                            Showing <span className="text-white font-bold">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="text-white font-bold">{totalItems}</span>
+                                    <div className="flex flex-row justify-between items-center gap-2 pt-2 px-1">
+                                        <div className="text-[10px] md:text-xs text-slate-500">
+                                            <span className="hidden xs:inline">Showing </span>
+                                            <span className="text-white font-bold">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="text-white font-bold">{totalItems}</span>
                                         </div>
 
-                                        <div className="flex items-center gap-2 bg-black/20 p-1 rounded-2xl border border-white/5">
+                                        <div className="flex items-center gap-1 md:gap-2 bg-black/20 p-1 rounded-xl md:rounded-2xl border border-white/5">
                                             <button
                                                 onClick={() => setCurrentPage(1)}
                                                 disabled={currentPage === 1}
-                                                className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
+                                                className="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center rounded-lg md:rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
                                             >
-                                                <span className="material-symbols-outlined text-lg">first_page</span>
+                                                <span className="material-symbols-outlined text-base md:text-lg">first_page</span>
                                             </button>
                                             <button
                                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                                 disabled={currentPage === 1}
-                                                className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
+                                                className="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center rounded-lg md:rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
                                             >
-                                                <span className="material-symbols-outlined text-lg">chevron_left</span>
+                                                <span className="material-symbols-outlined text-base md:text-lg">chevron_left</span>
                                             </button>
 
-                                            <div className="px-4 py-1.5 rounded-xl bg-white/10 text-white font-bold text-xs">
+                                            <div className="px-2 py-1 md:px-4 md:py-1.5 rounded-lg md:rounded-xl bg-white/10 text-white font-bold text-[10px] md:text-xs min-w-[50px] text-center">
                                                 {currentPage} / {totalPages}
                                             </div>
 
                                             <button
                                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                                 disabled={currentPage === totalPages}
-                                                className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
+                                                className="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center rounded-lg md:rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
                                             >
-                                                <span className="material-symbols-outlined text-lg">chevron_right</span>
+                                                <span className="material-symbols-outlined text-base md:text-lg">chevron_right</span>
                                             </button>
                                             <button
                                                 onClick={() => setCurrentPage(totalPages)}
                                                 disabled={currentPage === totalPages}
-                                                className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
+                                                className="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center rounded-lg md:rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-all"
                                             >
-                                                <span className="material-symbols-outlined text-lg">last_page</span>
+                                                <span className="material-symbols-outlined text-base md:text-lg">last_page</span>
                                             </button>
                                         </div>
                                     </div>
