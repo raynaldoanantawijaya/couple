@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Image from "next/image";
 
 interface GalleryItem {
     public_id: string;
@@ -19,6 +20,19 @@ export default function GalleryPage() {
     const [loading, setLoading] = useState(true);
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
     const [filter, setFilter] = useState("Semua");
+    const [visibleCount, setVisibleCount] = useState(15);
+    const observer = useRef<IntersectionObserver | null>(null);
+
+    const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                setVisibleCount(prev => prev + 15);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading]);
 
     useEffect(() => {
         // Real-time listener for Favorites
@@ -117,6 +131,8 @@ export default function GalleryPage() {
         return true;
     });
 
+    const visibleItems = filteredItems.slice(0, visibleCount);
+
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20 font-display">
 
@@ -167,18 +183,20 @@ export default function GalleryPage() {
                                 </p>
                             )}
 
-                            {filteredItems.map((item) => (
+                            {visibleItems.map((item) => (
                                 <div
                                     key={item.public_id}
                                     className="group relative aspect-square overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 cursor-pointer shadow-md transition-all hover:shadow-xl hover:shadow-primary/10"
                                     onClick={() => setSelectedItem(item)}
                                 >
-                                    <div
-                                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                                        style={{ backgroundImage: `url("${item.thumbnail || item.img}")` }}
-                                    >
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                                    </div>
+                                    <Image
+                                        src={item.thumbnail || item.img}
+                                        alt={item.title}
+                                        fill
+                                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                                        className="object-cover transition-transform duration-700 group-hover:scale-110"
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
 
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6 pointer-events-none">
                                         <span className="text-primary text-xs font-bold uppercase tracking-wider mb-1">{item.tag}</span>
@@ -194,7 +212,7 @@ export default function GalleryPage() {
                                         <button
                                             type="button"
                                             onClick={(e) => { e.preventDefault(); toggleFavorite(item.public_id, e); }}
-                                            className="w-10 h-10 grid place-items-center rounded-full transition-colors p-0 bg-black/30 backdrop-blur-sm text-white hover:text-red-500 shadow-sm cursor-pointer border-none outline-none"
+                                            className="w-10 h-10 grid place-items-center rounded-full transition-colors p-0 bg-black/40 text-white hover:text-red-500 shadow-sm cursor-pointer border-none outline-none"
                                             title="Favorit"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1", color: '#ef4444' } : {}}>favorite</span>
@@ -202,7 +220,7 @@ export default function GalleryPage() {
                                         <button
                                             type="button"
                                             onClick={(e) => { e.preventDefault(); handleDelete(item.public_id, e); }}
-                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0 border-none outline-none"
+                                            className="bg-black/40 w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0 border-none outline-none"
                                             title="Hapus"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none">delete</span>
@@ -210,6 +228,11 @@ export default function GalleryPage() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {!loading && filteredItems.length > visibleCount && (
+                        <div ref={loadMoreRef} className="col-span-full h-20 flex items-center justify-center">
+                            <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
                         </div>
                     )}
                 </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Image from "next/image";
 
 interface VideoItem {
     public_id: string;
@@ -20,6 +21,19 @@ export default function VideoPage() {
     const [loading, setLoading] = useState(true);
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
     const [filter, setFilter] = useState("Semua");
+    const [visibleCount, setVisibleCount] = useState(15);
+    const observer = useRef<IntersectionObserver | null>(null);
+
+    const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                setVisibleCount(prev => prev + 15);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading]);
 
     const fetchItems = async () => {
         setLoading(true);
@@ -131,6 +145,8 @@ export default function VideoPage() {
         return true;
     });
 
+    const visibleItems = filteredItems.slice(0, visibleCount);
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white overflow-x-hidden min-h-screen flex flex-col">
 
@@ -179,18 +195,20 @@ export default function VideoPage() {
                                 </p>
                             )}
 
-                            {filteredItems.map((item, idx) => (
+                            {visibleItems.map((item, idx) => (
                                 <div key={idx} className="group relative aspect-video overflow-hidden rounded-xl bg-surface-dark cursor-pointer shadow-md transition-all hover:shadow-xl hover:shadow-primary/10"
                                     onClick={() => item.videoUrl && window.open(item.videoUrl, '_blank')}
                                 >
-                                    <div
-                                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                                        style={{ backgroundImage: `url("${item.img}")` }}
-                                    >
-                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                                            <div className="bg-white/20 backdrop-blur-sm w-16 h-16 flex items-center justify-center rounded-full group-hover:scale-110 transition-transform">
-                                                <span className="material-symbols-outlined text-white text-4xl">play_arrow</span>
-                                            </div>
+                                    <Image
+                                        src={item.img}
+                                        alt={item.title}
+                                        fill
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        className="object-cover transition-transform duration-700 group-hover:scale-110"
+                                    />
+                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                        <div className="bg-white/20 backdrop-blur-sm w-16 h-16 flex items-center justify-center rounded-full group-hover:scale-110 transition-transform">
+                                            <span className="material-symbols-outlined text-white text-4xl">play_arrow</span>
                                         </div>
                                     </div>
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 pointer-events-none">
@@ -207,21 +225,26 @@ export default function VideoPage() {
                                     <div className="absolute top-3 right-3 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 z-30">
                                         <button
                                             type="button"
-                                            onClick={(e) => { e.preventDefault(); toggleFavorite(item.public_id, e); }}
-                                            className="w-10 h-10 grid place-items-center rounded-full transition-colors p-0 bg-black/30 backdrop-blur-sm text-white hover:text-red-500 shadow-sm cursor-pointer border-none outline-none"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(item.public_id, e); }}
+                                            className="w-10 h-10 grid place-items-center rounded-full transition-colors p-0 bg-black/40 text-white hover:text-red-500 shadow-sm cursor-pointer border-none outline-none"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none" style={favorites.has(item.public_id) ? { fontVariationSettings: "'FILL' 1", color: '#ef4444' } : {}}>favorite</span>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(idx, item); }}
-                                            className="bg-black/30 backdrop-blur-sm w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0 border-none outline-none"
+                                            className="bg-black/40 w-10 h-10 grid place-items-center rounded-full text-white hover:text-red-500 transition-colors cursor-pointer p-0 border-none outline-none"
                                         >
                                             <span className="material-symbols-outlined text-xl leading-none">delete</span>
                                         </button>
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {!loading && filteredItems.length > visibleCount && (
+                        <div ref={loadMoreRef} className="col-span-full h-20 flex items-center justify-center">
+                            <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
                         </div>
                     )}
                 </div>

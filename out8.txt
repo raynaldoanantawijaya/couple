@@ -1,0 +1,7 @@
+Latest IDX: idx_co_id_1773117145.json
+IDX Stock Keys: ["Kode","Nama_Perusahaan","Sektor","Papan_Pencatatan","Saham_Beredar","Tanggal_Pencatatan","Harga_Tinggi","Harga_Rendah","Harga_Tutup","Selisih","Persentase_Selisih","Volume","Nilai","Frekuensi"]
+IDX Stock Sample: {"Kode":"AALI","Nama_Perusahaan":"Astra Agro Lestari Tbk.","Sektor":"","Papan_Pencatatan":"","Saham_Beredar":1924688333,"Tanggal_Pencatatan":"1997-12-09T00:00:00","Harga_Tinggi":7350,"Harga_Rendah":7150,"Harga_Tutup":7250,"Selisih":-25,"Persentase_Selisih":0,"Volume":534900,"Nilai":3875467500,"Frekuensi":849}
+
+Latest Crypto: coinmarketcap_com_1773134697.json
+Crypto Keys: ["Rank","Name","Symbol","Price","1h %","24h %","7d %","Market Cap","Volume(24h)","Circulating Supply"]
+Crypto Sample: {"Rank":"","Name":"CoinMarketCap 20 Index DTF","Symbol":"CMC20","Price":"$145.81","1h %":"-0.24%","24h %":"3.11%","7d %":"1.37%","Market Cap":"$14,487,238","Volume(24h)":"$6,376,012","Circulating Supply":"99,359 CMC20"}

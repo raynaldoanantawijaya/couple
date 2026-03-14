@@ -12,6 +12,11 @@ export default function Navbar() {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Image Upload State
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -34,45 +39,28 @@ export default function Navbar() {
     const videoInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    // Session Check & Logout Logic
-    useEffect(() => {
-        const checkSession = () => {
-            const session = localStorage.getItem("auth_session");
-            if (session) {
-                try {
-                    const { loginTime } = JSON.parse(session);
-                    // 24 hours = 86400000 ms
-                    if (Date.now() - loginTime > 86400000) {
-                        handleLogout();
-                    }
-                } catch (e) {
-                    console.error("Session parse error", e);
-                }
-            }
-        };
-
-        checkSession();
-        const interval = setInterval(checkSession, 60000); // Check every minute
-        return () => clearInterval(interval);
-    }, []);
-
-    const handleLogout = () => {
-        if (confirm("Apakah Anda yakin ingin keluar?")) {
-            localStorage.removeItem("auth_session");
-            document.cookie = "auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
-            router.push("/");
-        }
-    };
-
-    if (pathname === "/") return null;
+    // Session Check & Logout Logic is removed since login page is deleted
 
     const navItems = [
-        { name: "Beranda", href: "/beranda" },
-        { name: "Galeri", href: "/gallery" },
-        { name: "Vidio", href: "/video" },
+        { name: "Beranda", href: "/" },
+        {
+            name: "Galeri",
+            href: "#",
+            children: [
+                { name: "Foto", href: "/gallery", icon: "photo_library" },
+                { name: "Vidio", href: "/video", icon: "video_library" }
+            ]
+        },
         { name: "Visi Misi", href: "/visi-misi" },
-        { name: "Tabungan", href: "/tabungan" },
-        { name: "Project", href: "/project" },
+        {
+            name: "Ekonomi",
+            href: "#",
+            children: [
+                { name: "Tabungan", href: "/tabungan", icon: "savings" },
+                { name: "Project", href: "/project", icon: "account_tree" }
+            ]
+        },
+        { name: "Market Monitor", href: "/tools/investment" },
         {
             name: "Alat",
             href: "#",
@@ -81,8 +69,7 @@ export default function Navbar() {
                 { name: "Upscale Image", href: "/tools/image-upscaler", icon: "hd" },
                 { name: "Hapus Background", href: "/tools/remove-bg", icon: "auto_fix_high" },
                 { name: "Youtube Downloader", href: "/tools/youtube-downloader", icon: "smart_display" },
-                { name: "Info Gempa", href: "/tools/disaster-detector", icon: "tsunami" },
-                { name: "Market Monitor", href: "/tools/investment", icon: "show_chart" }
+                { name: "Info Gempa", href: "/tools/disaster-detector", icon: "tsunami" }
             ]
         },
     ];
@@ -542,8 +529,8 @@ export default function Navbar() {
                         <div className="size-8 text-primary flex items-center justify-center">
                             <span className="material-symbols-outlined text-3xl">favorite</span>
                         </div>
-                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] dark:text-white text-slate-900">
-                            {navItems.find((item) => item.href === pathname)?.name || "Our Space"}
+                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] dark:text-white text-slate-900 transition-opacity duration-300">
+                            {isMounted ? (navItems.find((item) => item.href === pathname)?.name || "Our Space") : "Our Space"}
                         </h2>
                     </div>
 
@@ -598,7 +585,7 @@ export default function Navbar() {
                                             href={item.href}
                                             className={clsx(
                                                 "text-sm leading-normal transition-all duration-300",
-                                                pathname === item.href
+                                                isMounted && pathname === item.href
                                                     ? "font-bold text-primary scale-105"
                                                     : "font-medium text-slate-600 dark:text-slate-300 hover:text-primary hover:scale-105"
                                             )}
@@ -626,15 +613,6 @@ export default function Navbar() {
                                 <input type="file" accept="video/*" className="hidden" ref={videoInputRef} onChange={(e) => onFileSelect(e, 'video')} />
                             </label>
                         )}
-
-                        <button
-                            onClick={handleLogout}
-                            className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xs transition-colors shadow-lg shadow-green-500/20"
-                            title="Keluar / Logout"
-                        >
-                            <span className="material-symbols-outlined text-lg">logout</span>
-                            <span>Keluar</span>
-                        </button>
 
                         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden text-slate-900 dark:text-white z-20">
                             <span className="material-symbols-outlined">menu</span>
@@ -736,16 +714,6 @@ export default function Navbar() {
                                 </Link>
                             )
                         ))}
-                    </div>
-
-                    <div className="mt-auto pt-6 border-t border-slate-200 dark:border-white/10">
-                        <button
-                            onClick={() => { setIsMenuOpen(false); handleLogout(); }}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-xl font-bold text-sm transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-lg">logout</span>
-                            Keluar
-                        </button>
                     </div>
                 </div>
             </div >
